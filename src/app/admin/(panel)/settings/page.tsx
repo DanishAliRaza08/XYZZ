@@ -32,7 +32,7 @@ export default async function SettingsAdmin() {
           </div>
           {f("heroSubtitle", "Hero text", s.heroSubtitle)}
           <div className="grid-3">
-            {f("heroImage", "Hero image URL (https:// or /uploads/…)", s.heroImage)}
+            {f("heroImage", "Hero image (https://… or /hero-img.jpg from the public folder)", s.heroImage)}
             {f("heroCtaLabel", "Button label", s.heroCtaLabel)}
             {f("heroCtaHref", "Button link", s.heroCtaHref, { placeholder: "/shop/new-arrivals" })}
           </div>

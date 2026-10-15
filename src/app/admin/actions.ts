@@ -360,7 +360,8 @@ export async function updateSettings(_: FormState, fd: FormData): Promise<FormSt
   const heroCtaHref = str(fd, "heroCtaHref");
   if (heroCtaHref && !heroCtaHref.startsWith("/")) return { error: "Hero button link must be a page on this site, starting with /" };
   const heroImage = str(fd, "heroImage");
-  if (heroImage && !/^(https:\/\/|\/uploads\/)/.test(heroImage)) return { error: "Hero image must be an https:// URL or an uploaded image." };
+  // Allow https:// URLs or files in the public/ folder (e.g. /hero-img.jpg), but not protocol-relative //host URLs.
+  if (heroImage && !/^(https:\/\/|\/(?!\/))/.test(heroImage)) return { error: "Hero image must be an https:// URL or a path like /hero-img.jpg (file in the public folder)." };
   await saveSettings({
     announcement: str(fd, "announcement").slice(0, 200),
     heroEyebrow: str(fd, "heroEyebrow").slice(0, 60),

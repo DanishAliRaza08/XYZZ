@@ -1,0 +1,262 @@
+// Fashion Rockstar LTD — relational data model.
+// Money is stored as integer minor units (pence / cents) with the currency recorded explicitly.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  PRODUCT_MANAGER
+  ORDER_MANAGER
+  CUSTOMER_SERVICE
+  CONTENT_EDITOR
+  ANALYST
+}
+
+enum Department {
+  WOMEN
+  MEN
+  GIRLS
+  BOYS
+  BABY
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum Currency {
+  GBP
+  USD
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  NEEDS_ATTENTION // paid but stock could not be allocated — staff must resolve
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum ChatStatus {
+  AI          // assistant is answering
+  HUMAN       // customer asked for a person; staff reply from the admin inbox
+  CLOSED
+}
+
+enum ChatRole {
+  CUSTOMER
+  ASSISTANT
+  STAFF
+}
+
+model AdminUser {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String
+  role         AdminRole  @default(SUPER_ADMIN)
+  active       Boolean    @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  auditLogs    AuditLog[]
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  name        String
+  description String?
+  sortOrder   Int        @default(0)
+  products    Product[]
+  createdAt   DateTime   @default(now())
+}
+
+model Product {
+  id            String         @id @default(cuid())
+  slug          String         @unique
+  name          String
+  description   String
+  department    Department
+  categoryId    String
+  category      Category       @relation(fields: [categoryId], references: [id])
+  status        ProductStatus  @default(DRAFT)
+  // Prices in minor units. Sale prices are optional and must be lower than the regular price.
+  priceGBP      Int
+  salePriceGBP  Int?
+  priceUSD      Int?           // null = not sold in the US store
+  salePriceUSD  Int?
+  composition   String?        // e.g. "100% cotton" — only enter verified information
+  care          String?
+  origin        String?
+  ageRange      String?        // e.g. "3–8 years"
+  featured      Boolean        @default(false)
+  bestseller    Boolean        @default(false)
+  collection    String?        // e.g. "Autumn Occasion Edit"
+  sellerId      String?        // reserved for the marketplace phase
+  images        ProductImage[]
+  variants      Variant[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([status, department])
+  @@index([categoryId])
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String
+  position  Int     @default(0)
+
+  @@index([productId])
+}
+
+model Variant {
+  id         String      @id @default(cuid())
+  productId  String
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku        String      @unique
+  size       String
+  colour     String
+  colourHex  String      @default("#cccccc")
+  stock      Int         @default(0)
+  sortOrder  Int         @default(0)
+  orderItems OrderItem[]
+
+  @@unique([productId, size, colour])
+  @@index([productId])
+}
+
+model DiscountCode {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  percentOff  Int?      // 1–90
+  amountOffGBP Int?     // minor units, applied to GBP orders only
+  minSubtotalGBP Int?
+  active      Boolean   @default(true)
+  expiresAt   DateTime?
+  usageLimit  Int?
+  timesUsed   Int       @default(0)
+  createdAt   DateTime  @default(now())
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  number            String      @unique
+  status            OrderStatus @default(PENDING_PAYMENT)
+  currency          Currency
+  email             String
+  name              String
+  phone             String?
+  addressLine1      String
+  addressLine2      String?
+  city              String
+  region            String?
+  postcode          String
+  country           String      // ISO 3166-1 alpha-2
+  shippingMethod    String
+  subtotal          Int
+  discount          Int         @default(0)
+  shipping          Int
+  total             Int
+  discountCode      String?
+  stripeSessionId   String?     @unique
+  stripePaymentId   String?
+  trackingNumber    String?
+  trackingCarrier   String?
+  notes             String?
+  items             OrderItem[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  paidAt            DateTime?
+
+  @@index([status, createdAt])
+  @@index([email])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId   String
+  variant     Variant @relation(fields: [variantId], references: [id])
+  productName String
+  sku         String
+  size        String
+  colour      String
+  unitPrice   Int
+  quantity    Int
+
+  @@index([orderId])
+}
+
+// Every processed payment-provider event is recorded so retries are ignored (idempotency).
+model WebhookEvent {
+  id         String   @id // provider event id
+  type       String
+  receivedAt DateTime @default(now())
+}
+
+model ChatConversation {
+  id           String        @id @default(cuid())
+  // Random secret held by the visitor's browser — required to read or post to the conversation.
+  visitorToken String
+  status       ChatStatus    @default(AI)
+  customerName String?
+  customerEmail String?
+  unreadByStaff Boolean      @default(false)
+  messages     ChatMessage[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([status, updatedAt])
+}
+
+model ChatMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           ChatRole
+  content        String
+  createdAt      DateTime         @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  consentAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String     @id @default(cuid())
+  adminId   String?
+  admin     AdminUser? @relation(fields: [adminId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  createdAt DateTime   @default(now())
+
+  @@index([createdAt])
+}

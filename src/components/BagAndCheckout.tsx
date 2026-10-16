@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatMoney, type CurrencyCode } from "@/lib/money";
 import type { Quote } from "@/lib/quote";
+import { CardPayment } from "./CardPayment";
 import { ProductArtClient } from "./ProductArtClient";
 import { useStore } from "./StoreProvider";
 
@@ -116,7 +117,15 @@ export function BagView({ cancelled }: { cancelled: boolean }) {
 
 type Fields = { email: string; name: string; phone: string; addressLine1: string; addressLine2: string; city: string; region: string; postcode: string };
 
-export function CheckoutView({ currency, paymentsEnabled }: { currency: CurrencyCode; paymentsEnabled: boolean }) {
+type PaymentStep = { clientSecret: string; orderNumber: string; total: number };
+
+/**
+ * Checkout in two steps on one page: 1) contact, delivery address and method, then "Continue to payment"
+ * creates the order; 2) the card form (CardPayment) appears and the customer pays without leaving the page.
+ */
+export function CheckoutView({ currency, publishableKey }: { currency: CurrencyCode; publishableKey: string | null }) {
+  const paymentsEnabled = Boolean(publishableKey);
+  const [payment, setPayment] = useState<PaymentStep | null>(null);
   const [method, setMethod] = useState<"standard" | "express">("standard");
   const [codeInput, setCodeInput] = useState("");
   const [code, setCode] = useState<string | null>(null);
@@ -139,7 +148,7 @@ export function CheckoutView({ currency, paymentsEnabled }: { currency: Currency
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitting) return;
+    if (submitting || payment) return;
     setFormError(null);
     setFieldErrors({});
     if (!terms) return setFormError("Please accept the terms and returns policy to continue.");
@@ -151,17 +160,33 @@ export function CheckoutView({ currency, paymentsEnabled }: { currency: Currency
         body: JSON.stringify({ lines: bag, shippingMethod: method, discountCode: code, customer: { ...f, country }, acceptTerms: true }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.url) {
+      if (!res.ok || !data.clientSecret) {
         setFieldErrors(data.fieldErrors ?? {});
         setFormError(data.error ?? "Something went wrong. Please try again.");
         setSubmitting(false);
         return;
       }
-      window.location.href = data.url;
+      setPayment({ clientSecret: data.clientSecret, orderNumber: data.orderNumber, total: data.total });
+      setSubmitting(false);
     } catch {
       setFormError("Network error — please check your connection and try again.");
       setSubmitting(false);
     }
+  };
+
+  // Back to step 1: cancels the unpaid order so a new one is made with the edited details.
+  const editDetails = async () => {
+    if (!payment) return;
+    setSubmitting(true);
+    setFormError(null);
+    const res = await fetch("/api/checkout/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderNumber: payment.orderNumber, clientSecret: payment.clientSecret }),
+    }).catch(() => null);
+    setSubmitting(false);
+    if (res?.status === 409) return setFormError("This order has already been paid. Check your email or track your order.");
+    setPayment(null);
   };
 
   if (loading && !quote) return <p className="muted" style={{ padding: "40px 0" }}>Loading checkout…</p>;
@@ -177,7 +202,7 @@ export function CheckoutView({ currency, paymentsEnabled }: { currency: Currency
   const c = quote.currency as CurrencyCode;
   return (
     <form className="two-col" onSubmit={submit} noValidate>
-      <div className="stack">
+      <fieldset className="stack" disabled={Boolean(payment)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
         {!paymentsEnabled && (
           <div className="alert alert-warning">Online payments are being set up. You can review your order, but card payments aren't available yet — please contact us via chat to order.</div>
         )}
@@ -212,7 +237,7 @@ export function CheckoutView({ currency, paymentsEnabled }: { currency: Currency
           </label>
           <p className="muted small">Delivery times are estimates from dispatch and are not guaranteed.</p>
         </section>
-      </div>
+      </fieldset>
 
       <aside className="stack">
         <div className="panel">
@@ -227,22 +252,47 @@ export function CheckoutView({ currency, paymentsEnabled }: { currency: Currency
         <div className="panel">
           <label htmlFor="code" className="label">Discount code</label>
           <div className="row" style={{ flexWrap: "nowrap", marginTop: 6 }}>
-            <input id="code" className="input" value={codeInput} onChange={(e) => setCodeInput(e.target.value.toUpperCase())} maxLength={40} />
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => setCode(codeInput.trim() || null)}>Apply</button>
+            <input id="code" className="input" value={codeInput} onChange={(e) => setCodeInput(e.target.value.toUpperCase())} maxLength={40} disabled={Boolean(payment)} />
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => setCode(codeInput.trim() || null)} disabled={Boolean(payment)}>Apply</button>
           </div>
           {code && quote.discountError && <p className="field-error small">{quote.discountError}</p>}
           {code && quote.discountCode && <p className="small" style={{ color: "var(--success)" }}>Code {quote.discountCode} applied.</p>}
         </div>
         <Summary quote={quote}>
-          <label className="checkbox small" style={{ marginTop: 12, alignItems: "flex-start" }}>
-            <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} />
-            <span>I agree to the <Link href="/terms" style={{ textDecoration: "underline" }}>terms</Link> and <Link href="/delivery-returns" style={{ textDecoration: "underline" }}>returns policy</Link>, and understand my order is placed with an obligation to pay.</span>
-          </label>
-          {formError && <div className="alert alert-error" role="alert" style={{ marginTop: 10 }}>{formError}</div>}
-          <button className="btn btn-accent btn-block" style={{ marginTop: 14 }} disabled={submitting || !quote.ok || !paymentsEnabled || (Boolean(code) && !quote.discountCode)}>
-            {submitting ? "Redirecting to secure payment…" : `Pay ${formatMoney(quote.total, c)}`}
-          </button>
-          <p className="muted small center" style={{ marginTop: 8 }}>Payments are processed securely by Stripe. We never see or store your card details.</p>
+          {!payment ? (
+            <>
+              <label className="checkbox small" style={{ marginTop: 12, alignItems: "flex-start" }}>
+                <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} />
+                <span>I agree to the <Link href="/terms" style={{ textDecoration: "underline" }}>terms</Link> and <Link href="/delivery-returns" style={{ textDecoration: "underline" }}>returns policy</Link>, and understand my order is placed with an obligation to pay.</span>
+              </label>
+              {formError && <div className="alert alert-error" role="alert" style={{ marginTop: 10 }}>{formError}</div>}
+              <button className="btn btn-accent btn-block" style={{ marginTop: 14 }} disabled={submitting || !quote.ok || !paymentsEnabled || (Boolean(code) && !quote.discountCode)}>
+                {submitting ? "Please wait…" : "Continue to payment"}
+              </button>
+            </>
+          ) : (
+            <div className="stack" style={{ marginTop: 14, gap: 10 }}>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <h3 style={{ margin: 0 }}>Card details</h3>
+                <button type="button" className="btn btn-sm btn-ghost" onClick={editDetails} disabled={submitting}>Edit details</button>
+              </div>
+              <p className="muted small" style={{ margin: 0 }}>Order {payment.orderNumber} · delivering to {f.name}, {f.postcode}</p>
+              {formError && <div className="alert alert-error" role="alert">{formError}</div>}
+              <CardPayment
+                publishableKey={publishableKey!}
+                clientSecret={payment.clientSecret}
+                orderNumber={payment.orderNumber}
+                amountLabel={formatMoney(payment.total, c)}
+                billing={{
+                  name: f.name,
+                  email: f.email,
+                  phone: f.phone,
+                  address: { line1: f.addressLine1, line2: f.addressLine2, city: f.city, state: f.region, postal_code: f.postcode, country },
+                }}
+              />
+            </div>
+          )}
+          <p className="muted small center" style={{ marginTop: 8 }}>🔒 Card payments are processed securely by Stripe. We never see or store your card details.</p>
         </Summary>
       </aside>
     </form>

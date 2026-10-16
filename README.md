@@ -23,7 +23,7 @@ See [`docs/PLAN.md`](docs/PLAN.md) for the research, architecture, compliance ch
 - **Storefront** — homepage, a menu with dropdowns (Boys, Girls, Men, Women, School & Stationery, Festival Special, Footwear, More, Sale), category pages with filters, search, product pages, wishlist, bag, guest checkout, order tracking and policy pages.
 - **Shop by department** — picture cards on the homepage with a description, quick links and a button for each department. Change the picture, text and button in Admin → Site settings.
 - **Light and dark mode** — follows the visitor's device setting, with a toggle in the header that is remembered.
-- **Stripe payments** — GBP for the UK and USD for the US. Orders are only marked paid by a signed Stripe webhook.
+- **Card payments on the checkout page** — customers type their card details into a secure Stripe card form on our own checkout page and pay without leaving the site (Apple Pay and Google Pay too, when switched on in Stripe). GBP for the UK and USD for the US.
 - **Seasonal events** — switch on Halloween, Christmas or your own event and the whole site changes: a bar at the top of every page, themed colours, falling bats or snow, and a homepage banner, promo pictures and product section you control.
 - **Chat assistant** — Google Gemini (free tier) answers questions using your live catalogue and policies. "Talk to a person" hands the chat to your team, who can reply inside the website or continue on **your WhatsApp number**.
 - **Admin dashboard** at `/admin`, behind a staff login: products, sizes and colours, stock, photos, **all pricing on one page**, sale percentages, categories, discount codes, orders, customer chats, seasonal events, homepage content, delivery charges, staff roles and the audit log.
@@ -55,7 +55,8 @@ The seed is safe to run again at any time: it adds anything missing and leaves y
 | `SITE_URL` | Public address, e.g. `https://www.yourdomain.co.uk`. Used for Stripe redirects and the sitemap |
 | `SESSION_SECRET` | Long random string that signs admin logins (`openssl rand -hex 32`) |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Your owner account. Re-running the seed resets this password |
-| `STRIPE_SECRET_KEY` | From Stripe Dashboard → Developers → API keys (`sk_test_…` while testing) |
+| `STRIPE_SECRET_KEY` | From Stripe Dashboard → Developers → API keys (`sk_test_…` while testing). Keep it secret |
+| `STRIPE_PUBLISHABLE_KEY` | From the same page (`pk_test_…` while testing). Safe to show in the browser; it loads the card form |
 | `STRIPE_WEBHOOK_SECRET` | From the webhook endpoint you create (`whsec_…`) |
 | `GEMINI_API_KEY` | Turns on AI chat replies. Get a free key at [Google AI Studio](https://aistudio.google.com/apikey). Without it, the chat still works and routes customers to your team |
 | `GEMINI_MODEL` | Optional. Pins a Gemini model, e.g. `gemini-2.5-flash`. Defaults to `gemini-flash-latest`, Google's current Flash model |
@@ -201,17 +202,42 @@ Options: `npm run import:products -- https://other-shop.example --max-images 2 -
 
 ## 7. Set up payments (Stripe)
 
+### How a customer pays
+
+1. **Checkout → details:** they enter their email, delivery address and delivery method, tick the terms box and press **Continue to payment**. The server re-checks the bag, prices, stock and discount, creates the order (status *Pending payment*) and asks Stripe to prepare a payment for the exact total.
+2. **Checkout → card details:** a card form appears on the same page (card number, expiry, CVC, and billing country/postcode pre-filled from the delivery address). They press **Pay £…**.
+   - If their bank wants extra security (3D Secure), a pop-up from the bank opens; once approved the payment finishes.
+   - If the card is declined, a message explains why (e.g. "Your card has insufficient funds") and they can try another card straight away.
+   - **Edit details** goes back to step 1 and cancels the unpaid order.
+3. **Thank-you page:** the order is marked **Paid**, stock goes down and the bag is emptied. This happens as soon as Stripe confirms the payment — the thank-you page checks with Stripe directly, and Stripe's webhook confirms it again in the background.
+
+**Card details never touch our server.** The card fields are Stripe's own secure fields embedded in our page (Stripe *Payment Element*), so card numbers go straight from the customer's browser to Stripe. That keeps Fashion Rockstar out of most PCI card-security paperwork (you'll fill in Stripe's short self-assessment, SAQ A). Never add your own card-number inputs.
+
+### Setting it up
+
 1. Create a Stripe account at stripe.com for Fashion Rockstar LTD. Complete business verification with your real company, director and bank details, and add the bank account that should receive payouts. Stripe decides eligibility based on where the company and its representatives are located, so confirm this first.
-2. Put your **test** secret key in `STRIPE_SECRET_KEY`.
+2. Put your **test** keys in `.env`: `STRIPE_SECRET_KEY` (`sk_test_…`) and `STRIPE_PUBLISHABLE_KEY` (`pk_test_…`), both from Stripe → Developers → API keys. Without both keys the checkout says card payments aren't available yet.
 3. In Stripe → Developers → Webhooks, add an endpoint at `https://YOUR-DOMAIN/api/webhooks/stripe` with these events:
-   `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `charge.refunded`.
+   `payment_intent.succeeded`, `payment_intent.canceled`, `charge.refunded`
+   (plus `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired` if you already had them — orders from the old hosted payment page still work).
    Copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
    For local testing, run `stripe listen --forward-to localhost:3000/api/webhooks/stripe`.
-4. Place test orders with card `4242 4242 4242 4242`. Check that the order shows **Paid** in Admin → Orders and that stock went down.
-5. When everything works, switch to your **live** keys and a live webhook endpoint.
+4. Optional: in Stripe → Settings → Payment methods, choose what customers can use. Cards are on by default; switch on Apple Pay, Google Pay or Klarna and they appear in the same form automatically. For Apple Pay on your live site, also add your domain under Settings → Payment method domains.
+5. Place test orders with these test cards (any future expiry date, any CVC, any postcode):
+
+   | Card number | What happens |
+   |---|---|
+   | `4242 4242 4242 4242` | Payment succeeds |
+   | `4000 0025 0000 3155` | Bank security check (3D Secure) pop-up, then succeeds |
+   | `4000 0000 0000 9995` | Declined — insufficient funds |
+   | `4000 0000 0000 0002` | Declined — generic decline |
+
+   Check that a successful order shows **Paid** in Admin → Orders and that stock went down.
+6. When everything works, switch to your **live** keys (`sk_live_…`, `pk_live_…`) and a live webhook endpoint.
 
 Safeguards built in:
-- Prices, stock, discounts and delivery are recalculated on the server. The browser only sends product IDs and quantities.
+- Prices, stock, discounts and delivery are recalculated on the server. The browser only sends product IDs and quantities, and Stripe is asked to charge the server's total.
+- An order is only marked paid after Stripe confirms it (signed webhook, or a direct check with Stripe's API) — never because the browser says so.
 - Webhook signatures are verified, and repeated events are ignored.
 - Stock can never go negative.
 - If the amount paid doesn't match the order, or stock ran out, the order is flagged **Needs attention**.
@@ -278,8 +304,8 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `product/[slug]/page.tsx` | `/product/…` | Product page: photos, price, size/colour picker, add to bag, related products |
 | `search/page.tsx` | `/search?q=…` | Search results |
 | `bag/page.tsx` | `/bag` | Shopping bag |
-| `checkout/page.tsx` | `/checkout` | Delivery details, then on to Stripe to pay |
-| `checkout/success/page.tsx` | `/checkout/success` | Thank-you page after paying |
+| `checkout/page.tsx` | `/checkout` | Delivery details, then the card form — the customer pays on this page |
+| `checkout/success/page.tsx` | `/checkout/success` | Thank-you page; checks the payment with Stripe and marks the order paid |
 | `order-status/page.tsx` | `/order-status` | Customers track an order with its number and email |
 | `wishlist/page.tsx` | `/wishlist` | Saved items (stored in the customer's browser) |
 | `about`, `contact`, `faq`, `delivery-returns`, `size-guide`, `privacy`, `cookies`, `terms` | `/about` … | Information and policy pages — edit the text in each `page.tsx` |
@@ -309,8 +335,9 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | Path | What it does |
 |---|---|
 | `api/cart/quote/route.ts` | Works out bag totals, discounts and delivery on the server |
-| `api/checkout/route.ts` | Creates the order and the Stripe payment page |
-| `api/webhooks/stripe/route.ts` | Stripe tells us a payment succeeded/failed/was refunded; marks orders paid and reduces stock |
+| `api/checkout/route.ts` | Step 1 of checkout: checks the bag and details, creates the order and a Stripe payment for the exact total |
+| `api/checkout/cancel/route.ts` | "Edit details" on the payment step: cancels the unpaid order and its Stripe payment |
+| `api/webhooks/stripe/route.ts` | Stripe tells us a payment succeeded, was cancelled or was refunded; marks orders paid and reduces stock |
 | `api/chat/route.ts` | Chat messages; gets the Gemini assistant's reply |
 | `api/chat/handoff/route.ts` | "Talk to a person": hands the chat to staff |
 | `api/newsletter/route.ts` | Newsletter sign-ups (with consent) |
@@ -330,7 +357,8 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `Listing.tsx` | A product list page: title, sub-page chips, filters (size, colour, price, stock), sorting, pagination |
 | `ProductCard.tsx` | One product tile in a grid: photo, name, price, colours, sale/new labels |
 | `ProductPurchase.tsx` | Size and colour picker with add to bag / wishlist on the product page |
-| `BagAndCheckout.tsx` | The bag and checkout forms |
+| `BagAndCheckout.tsx` | The bag and the two-step checkout (details, then card payment) |
+| `CardPayment.tsx` | The card form (Stripe Payment Element) styled to match the shop, with the Pay button and decline messages |
 | `StoreProvider.tsx` | Remembers the bag and wishlist in the browser |
 | `ChatWidget.tsx` | The chat bubble and window |
 | `EventBar.tsx` / `EventDecor.tsx` | Seasonal event bar (closable) and falling bats/snow |
@@ -359,9 +387,9 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `pricing.ts` | Regular/sale prices per currency, discounts, delivery charges |
 | `money.ts` | Formatting and reading prices (stored as pence/cents) |
 | `quote.ts` | Bag totals checked against live prices and stock |
-| `orders.ts` | Creating orders and marking them paid (stock-safe) |
+| `orders.ts` | Creating orders, marking them paid (stock-safe) and confirming a card payment with Stripe for the thank-you page |
 | `checkout-schema.ts` | Rules for valid checkout details |
-| `stripe.ts` | Stripe connection and the site address |
+| `stripe.ts` | Stripe connection, the publishable key and the site address |
 | `chat.ts` | The Gemini chat assistant and the store information it's given |
 | `chat-store.ts` | Loading and saving chat conversations |
 | `auth.ts` / `session.ts` | Staff sign-in, roles and permissions |
@@ -391,4 +419,4 @@ npm test            # unit tests + database integration tests (when DATABASE_URL
 npm run build       # production build
 ```
 
-Tech stack: Next.js 15 (App Router) · React 19 · TypeScript · PostgreSQL + Prisma · Stripe Checkout · Google Gemini API (REST, no SDK) · plain CSS design tokens for theming.
+Tech stack: Next.js 15 (App Router) · React 19 · TypeScript · PostgreSQL + Prisma · Stripe (Payment Element + PaymentIntents) · Google Gemini API (REST, no SDK) · plain CSS design tokens for theming.

@@ -3,17 +3,16 @@ import Link from "next/link";
 import { ClearBagOnSuccess } from "@/components/BagAndCheckout";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
+import { findPaidOrder } from "@/lib/orders";
 
 export const metadata: Metadata = { title: "Thank you", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
-export default async function SuccessPage({ searchParams }: { searchParams: Promise<{ order?: string; session_id?: string }> }) {
+type Params = { order?: string; session_id?: string; payment_intent?: string };
+
+export default async function SuccessPage({ searchParams }: { searchParams: Promise<Params> }) {
   const sp = await searchParams;
-  // The order is looked up by both its number and the Stripe session id so the URL can't be used to browse other orders.
-  const order =
-    sp.order && sp.session_id
-      ? await prisma.order.findFirst({ where: { number: sp.order, stripeSessionId: sp.session_id }, include: { items: true } })
-      : null;
+  const order = await findPaidOrder({ orderNumber: sp.order, paymentIntentId: sp.payment_intent, checkoutSessionId: sp.session_id });
 
   if (!order)
     return (
@@ -26,7 +25,7 @@ export default async function SuccessPage({ searchParams }: { searchParams: Prom
   const paid = ["PAID", "PROCESSING", "SHIPPED", "DELIVERED", "NEEDS_ATTENTION"].includes(order.status);
   return (
     <div className="container section" style={{ maxWidth: 720 }}>
-      <ClearBagOnSuccess />
+      {order.status !== "CANCELLED" && <ClearBagOnSuccess />}
       <span className="eyebrow">Order {order.number}</span>
       <h1>{paid ? "Thank you for your order" : "We're confirming your payment"}</h1>
       <p className="muted">

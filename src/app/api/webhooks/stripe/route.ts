@@ -27,6 +27,21 @@ export async function POST(req: NextRequest) {
   if (await prisma.webhookEvent.findUnique({ where: { id: event.id } })) return NextResponse.json({ received: true, duplicate: true });
 
   switch (event.type) {
+    // On-page card payments (Payment Element).
+    case "payment_intent.succeeded": {
+      const intent = event.data.object;
+      const orderId = intent.metadata?.orderId;
+      if (orderId) await markOrderPaid({ orderId, paymentId: intent.id, amountPaid: intent.amount_received, currency: intent.currency });
+      break;
+    }
+    case "payment_intent.canceled": {
+      const orderId = event.data.object.metadata?.orderId;
+      if (orderId) await cancelUnpaidOrder(orderId);
+      break;
+    }
+    // A declined card (payment_intent.payment_failed) needs no action: the customer can try another card.
+
+    // Orders started on Stripe's hosted checkout page (earlier versions of the shop).
     case "checkout.session.completed":
     case "checkout.session.async_payment_succeeded": {
       const session = event.data.object;

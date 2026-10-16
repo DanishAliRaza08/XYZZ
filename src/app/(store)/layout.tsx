@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { ChatWidget } from "@/components/ChatWidget";
+import { EventBar } from "@/components/EventBar";
+import { EventDecor } from "@/components/EventDecor";
 import { CurrencySwitcher } from "@/components/CurrencySwitcher";
 import { BagLink, MobileMenuButton, SearchToggle, WishlistLink, type NavItem } from "@/components/HeaderClient";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { DEPARTMENTS } from "@/lib/catalog";
 import { getCurrency } from "@/lib/currency-server";
 import { prisma } from "@/lib/db";
+import { accentVars, getActiveEvent, themeSlug } from "@/lib/events";
 import { getSettings } from "@/lib/settings";
 import { NewsletterForm } from "@/components/NewsletterForm";
 
@@ -41,11 +44,24 @@ async function buildNav(): Promise<NavItem[]> {
 }
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
-  const [settings, currency, nav] = await Promise.all([getSettings(), getCurrency(), buildNav()]);
+  const [settings, currency, nav, event] = await Promise.all([getSettings(), getCurrency(), buildNav(), getActiveEvent()]);
   const year = new Date().getFullYear();
   return (
-    <>
+    <div
+      className={event ? "event-scope" : undefined}
+      data-event={event ? themeSlug(event.theme) : undefined}
+      style={event ? (accentVars(event.accentColor) as React.CSSProperties) : undefined}
+    >
       <a href="#main" className="skip-link">Skip to content</a>
+      {event && (
+        <EventBar
+          storageKey={`event-bar:${event.id}:${event.updatedAt.getTime()}`}
+          text={event.barText}
+          linkLabel={event.barLinkLabel}
+          linkHref={event.barLinkHref}
+        />
+      )}
+      {event?.decorations && <EventDecor theme={event.theme} />}
       {settings.announcement && <div className="announcement">{settings.announcement}</div>}
       <header className="site-header">
         <div className="container header-inner" style={{ position: "relative" }}>
@@ -150,6 +166,6 @@ export default async function StoreLayout({ children }: { children: React.ReactN
         </div>
       </footer>
       <ChatWidget hasPhone={Boolean(settings.whatsappNumber || settings.supportPhone)} />
-    </>
+    </div>
   );
 }

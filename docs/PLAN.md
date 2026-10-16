@@ -15,7 +15,7 @@ Benchmarked: Monsoon (children's occasionwear), Boden, Joules, Next and Frugi. W
 | Sale price shown next to the crossed-out regular price, with % off | All | Automatic: the % is calculated from the regular and sale prices |
 | Fabric, care and origin on the product page | Frugi | Optional fields, with a note to enter only verified information |
 | Guest checkout | All | Guest checkout; order tracking by order number and email |
-| Live chat with the option of a person | Next | Claude assistant, with handoff to your team (in-site replies or WhatsApp) |
+| Live chat with the option of a person | Next | Gemini assistant, with handoff to your team (in-site replies or WhatsApp) |
 
 ## 2. Architecture
 
@@ -24,7 +24,7 @@ Browser ──► Next.js app (storefront + admin + API routes)
               │  server-side: pricing, stock, discounts, auth, validation
               ├──► PostgreSQL (Prisma)  products, variants, orders, chats, settings, audit log
               ├──► Stripe Checkout       card / Apple Pay / Google Pay; webhooks back to /api/webhooks/stripe
-              ├──► Claude API            chat assistant grounded in live catalogue + policies
+              ├──► Gemini API            chat assistant grounded in live catalogue + policies
               └──► WhatsApp (wa.me link) customer → owner's number with chat reference
 ```
 
@@ -87,7 +87,7 @@ Stripe Checkout hosts the card form, so card data never reaches our servers. Thi
 
 - [ ] Company name, registration number, registered address and VAT number entered in Admin → Site settings (shown in the footer)
 - [ ] Privacy policy, cookie policy, terms and returns pages reviewed and completed. They are templates and marked as such.
-- [ ] UK GDPR / DPA 2018: lawful basis recorded; data retention periods confirmed; processor agreements signed with Stripe, Anthropic and your host
+- [ ] UK GDPR / DPA 2018: lawful basis recorded; data retention periods confirmed; processor agreements signed with Stripe, Google (Gemini API — note the free tier may use prompts to improve Google products; use a paid tier if that is not acceptable) and your host
 - [ ] PECR: marketing emails only with consent (built in). Add a consent banner before adding any analytics or advertising cookies.
 - [ ] Consumer Contracts Regulations: 14-day cancellation information (in the template) and pre-contract information at checkout
 - [ ] Consumer Rights Act 2015: process for faulty goods

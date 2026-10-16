@@ -1,23 +1,26 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "./db";
 import { formatMoney } from "./money";
 import { resolvePrice } from "./pricing";
 import { getSettings } from "./settings";
 import { siteUrl } from "./stripe";
 
-export const CHAT_MODEL = "claude-opus-5-5";
+// Google Gemini (free tier available from https://aistudio.google.com/apikey).
+// "gemini-flash-latest" always points at Google's current Flash model; set GEMINI_MODEL to pin one.
+export const CHAT_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
+const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 const HISTORY_LIMIT = 20;
-
-let client: Anthropic | null = null;
-function getClient() {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  client ??= new Anthropic();
-  return client;
-}
+const REQUEST_TIMEOUT_MS = 30_000;
 
 export function aiEnabled() {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
+  return Boolean(process.env.GEMINI_API_KEY);
 }
+
+type GeminiContent = { role: "user" | "model"; parts: { text: string }[] };
+type GeminiResponse = {
+  candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[];
+  promptFeedback?: { blockReason?: string };
+  error?: { message?: string };
+};
 
 async function storeContext() {
   const [settings, products] = await Promise.all([
@@ -74,8 +77,8 @@ When recommending a product, include its link so the customer can open it.`;
 export type ChatReply = { text: string; handoffSuggested: boolean };
 
 export async function generateAssistantReply(conversationId: string): Promise<ChatReply> {
-  const anthropic = getClient();
-  if (!anthropic)
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey)
     return {
       text: "Our automated assistant isn't available right now. Tap \"Talk to a person\" and a member of our team will help you.",
       handoffSuggested: true,
@@ -88,55 +91,62 @@ export async function generateAssistantReply(conversationId: string): Promise<Ch
   });
   history.reverse();
 
-  // The API requires the first message to be from the user and roles to alternate sensibly.
-  const messages: Anthropic.Beta.BetaMessageParam[] = [];
+  // Gemini expects the conversation to start with the user; consecutive turns from the same side are merged.
+  const contents: GeminiContent[] = [];
   for (const m of history) {
-    const role = m.role === "CUSTOMER" ? "user" : "assistant";
-    const content = m.role === "STAFF" ? `[Reply from our customer service team] ${m.content}` : m.content;
-    if (!messages.length && role !== "user") continue;
-    messages.push({ role, content });
+    const role = m.role === "CUSTOMER" ? "user" : "model";
+    const text = m.role === "STAFF" ? `[Reply from our customer service team] ${m.content}` : m.content;
+    if (!contents.length && role !== "user") continue;
+    const last = contents[contents.length - 1];
+    if (last?.role === role) last.parts.push({ text });
+    else contents.push({ role, parts: [{ text }] });
   }
-  if (!messages.length) return { text: "How can I help you today?", handoffSuggested: false };
+  if (!contents.length) return { text: "How can I help you today?", handoffSuggested: false };
 
   const { policies, catalogue } = await storeContext();
+  const failure: ChatReply = {
+    text: "Sorry, I'm having trouble answering right now. Tap \"Talk to a person\" and our team will help.",
+    handoffSuggested: true,
+  };
 
   try {
-    const response = await anthropic.beta.messages.create({
-      model: CHAT_MODEL,
-      max_tokens: 2000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      output_config: { effort: "low" },
-      system: [
-        { type: "text", text: INSTRUCTIONS },
-        {
-          type: "text",
-          text: `<store_policies>\n${policies}\n</store_policies>\n\n<catalogue>\n${catalogue || "(no products published yet)"}\n</catalogue>`,
-          cache_control: { type: "ephemeral" },
+    const res = await fetch(`${GEMINI_ENDPOINT}/${encodeURIComponent(CHAT_MODEL)}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [
+            { text: INSTRUCTIONS },
+            { text: `<store_policies>\n${policies}\n</store_policies>\n\n<catalogue>\n${catalogue || "(no products published yet)"}\n</catalogue>` },
+          ],
         },
-      ],
-      messages,
+        contents,
+        generationConfig: { maxOutputTokens: 2048, temperature: 0.4 },
+      }),
     });
+    const data = (await res.json().catch(() => ({}))) as GeminiResponse;
+    if (!res.ok) {
+      if (res.status === 429) console.warn("Chat assistant rate limited (Gemini free-tier quota reached?)");
+      else console.error(`Chat assistant API error ${res.status}:`, data.error?.message ?? "unknown error");
+      return failure;
+    }
 
-    if (response.stop_reason === "refusal")
+    const candidate = data.candidates?.[0];
+    if (data.promptFeedback?.blockReason || candidate?.finishReason === "SAFETY" || candidate?.finishReason === "PROHIBITED_CONTENT")
       return {
         text: "I'm not able to help with that here. Tap \"Talk to a person\" and our team will take a look.",
         handoffSuggested: true,
       };
 
-    const text = response.content
-      .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("\n")
+    const text = (candidate?.content?.parts ?? [])
+      .filter((p) => !p.thought && p.text)
+      .map((p) => p.text)
+      .join("")
       .trim();
     return { text: text || "Sorry, I didn't catch that — could you rephrase?", handoffSuggested: false };
   } catch (error) {
-    if (error instanceof Anthropic.RateLimitError) console.warn("Chat assistant rate limited");
-    else if (error instanceof Anthropic.APIError) console.error(`Chat assistant API error ${error.status}:`, error.message);
-    else console.error("Chat assistant error:", error);
-    return {
-      text: "Sorry, I'm having trouble answering right now. Tap \"Talk to a person\" and our team will help.",
-      handoffSuggested: true,
-    };
+    console.error("Chat assistant error:", error);
+    return failure;
   }
 }

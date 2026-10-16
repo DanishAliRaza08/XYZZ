@@ -371,3 +371,68 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 @media (max-width: 900px) { .chat-admin { grid-template-columns: 1fr; } }
 .chat-list a { display: block; padding: 10px 12px; border-bottom: 1px solid var(--border); }
 .chat-list a.active { background: var(--surface-2); }
+
+/* ---------- Seasonal events (Admin → Seasonal events) ----------
+   While an event is live the store layout wraps the page in .event-scope[data-event=…];
+   :has() lets the whole page (including body background) pick up the event palette. */
+:root:has(.event-scope[data-event="halloween"]) {
+  --bg: #fff6ec; --surface: #fffdf9; --surface-2: #fde3c8; --text: #241631; --muted: #6e5a6e; --border: #f0d6bb;
+  --accent: #c84c06; --accent-contrast: #ffffff; --accent-soft: #fde3cf;
+  --event-bar-bg: linear-gradient(90deg, #3b1f5c, #c84c06 55%, #3b1f5c); --event-bar-text: #fff7ee;
+}
+:root:has(.event-scope[data-event="christmas"]) {
+  --bg: #fbf8f2; --surface: #ffffff; --surface-2: #e8f0e8; --text: #1b2a20; --muted: #5b6b60; --border: #d8e2d6;
+  --accent: #b3122e; --accent-contrast: #ffffff; --accent-soft: #f7e0e3;
+  --event-bar-bg: repeating-linear-gradient(135deg, #b3122e 0 18px, #9c0f27 18px 36px); --event-bar-text: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):has(.event-scope[data-event="halloween"]) {
+    --bg: #140e1c; --surface: #1d1528; --surface-2: #2a1d38; --text: #f8eee2; --muted: #b9a6bf; --border: #3a2a4a;
+    --accent: #ff8a2a; --accent-contrast: #1a0f05; --accent-soft: #3a2414;
+  }
+  :root:not([data-theme="light"]):has(.event-scope[data-event="christmas"]) {
+    --bg: #0d1a13; --surface: #13241a; --surface-2: #1b3124; --text: #f3efe6; --muted: #a5b5a8; --border: #2a4434;
+    --accent: #ff5a6e; --accent-contrast: #1a0508; --accent-soft: #3a1a20;
+  }
+}
+:root[data-theme="dark"]:has(.event-scope[data-event="halloween"]) {
+  --bg: #140e1c; --surface: #1d1528; --surface-2: #2a1d38; --text: #f8eee2; --muted: #b9a6bf; --border: #3a2a4a;
+  --accent: #ff8a2a; --accent-contrast: #1a0f05; --accent-soft: #3a2414;
+}
+:root[data-theme="dark"]:has(.event-scope[data-event="christmas"]) {
+  --bg: #0d1a13; --surface: #13241a; --surface-2: #1b3124; --text: #f3efe6; --muted: #a5b5a8; --border: #2a4434;
+  --accent: #ff5a6e; --accent-contrast: #1a0508; --accent-soft: #3a1a20;
+}
+
+.event-bar { position: relative; background: var(--event-bar-bg, var(--accent)); color: var(--event-bar-text, var(--accent-contrast)); text-align: center; font-size: 0.86rem; font-weight: 600; letter-spacing: 0.04em; padding: 10px 44px; }
+.event-bar a { text-decoration: underline; text-underline-offset: 3px; margin-left: 10px; white-space: nowrap; }
+.event-bar-close { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 1.2rem; line-height: 1; cursor: pointer; }
+.event-bar-close:hover { background: rgba(255,255,255,0.18); }
+.event-bar[hidden] { display: none; }
+
+.event-scope .main-nav, .event-scope .newsletter { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.event-scope .section-head h2 { color: var(--text); }
+.event-scope .eyebrow { color: var(--accent); }
+.hero-art[data-event="halloween"]::after, .hero-art[data-event="christmas"]::after {
+  border: 0; display: grid; place-items: center; font-size: min(24vw, 260px); line-height: 1; opacity: 0.9;
+  filter: drop-shadow(0 18px 40px color-mix(in srgb, var(--accent) 45%, transparent));
+}
+.hero-art[data-event="halloween"]::after { content: "🎃"; }
+.hero-art[data-event="christmas"]::after { content: "🎄"; }
+@media (max-width: 700px) { .hero-art[data-event]::after { opacity: 0.35; right: 2%; } }
+
+.event-banners { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.event-banner { position: relative; display: block; aspect-ratio: 4/3; overflow: hidden; border-radius: var(--radius-lg); background: var(--surface-2); }
+.event-banner img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
+.event-banner:hover img { transform: scale(1.04); }
+.event-banner span { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 18px 16px; color: #fff; font-family: var(--font-serif); font-size: 1.4rem; background: linear-gradient(0deg, rgba(0,0,0,0.6), transparent); }
+.event-banner:hover { text-decoration: none; }
+
+.event-decor { position: fixed; inset: 0; pointer-events: none; z-index: 30; overflow: hidden; }
+.event-decor span { position: absolute; top: -40px; opacity: 0.75; animation: event-fall linear infinite; }
+@keyframes event-fall {
+  0% { transform: translate3d(0, -40px, 0) rotate(0deg); }
+  50% { transform: translate3d(28px, 50vh, 0) rotate(160deg); }
+  100% { transform: translate3d(-10px, 105vh, 0) rotate(340deg); }
+}
+@media (prefers-reduced-motion: reduce) { .event-decor { display: none; } }

@@ -2,7 +2,7 @@
   "name": "fashion-rockstar",
   "version": "0.1.0",
   "private": true,
-  "description": "Fashion Rockstar LTD — premium UK clothing e-commerce store with admin dashboard, Stripe checkout and AI + human chat support.",
+  "description": "Fashion Rockstar LTD \u2014 premium UK clothing e-commerce store with admin dashboard, Stripe checkout and AI (Gemini) + human chat support.",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
@@ -11,7 +11,8 @@
     "test": "vitest run",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "import:products": "tsx scripts/import-shopify.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -20,7 +21,6 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.134.0",
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.3",
     "next": "^15.5.28",

@@ -3,13 +3,14 @@ import { ProductCard } from "@/components/ProductCard";
 import { DEPARTMENTS, listProducts } from "@/lib/catalog";
 import { getCurrency } from "@/lib/currency-server";
 import { prisma } from "@/lib/db";
+import { getActiveEvent, isSafeImage, parseBanners, themeSlug } from "@/lib/events";
 import { formatMoney } from "@/lib/money";
 import { getSettings } from "@/lib/settings";
 
 const TILE_TINTS = ["#c9a7ad", "#b9c4cf", "#c7c1a6", "#d8c5b5", "#a9b8a8"];
 
 export default async function HomePage() {
-  const [settings, currency] = await Promise.all([getSettings(), getCurrency()]);
+  const [settings, currency, event] = await Promise.all([getSettings(), getCurrency(), getActiveEvent()]);
   const [featured, bestsellers, collections] = await Promise.all([
     listProducts({ currency, sort: "recommended" }),
     listProducts({ currency, collection: "bestsellers" }),
@@ -24,29 +25,93 @@ export default async function HomePage() {
   const shownFeatured = featuredItems.length ? featuredItems : featured.items.slice(0, 8);
   const ship = settings.shipping[currency];
 
+  // A live seasonal event takes over the hero and adds its own shop section.
+  const hero = event
+    ? {
+        eyebrow: event.heroEyebrow ?? "",
+        title: event.heroTitle,
+        subtitle: event.heroSubtitle ?? "",
+        image: event.heroImage && isSafeImage(event.heroImage) ? event.heroImage : "",
+        ctaLabel: event.heroCtaLabel || "Shop the edit",
+        ctaHref: event.heroCtaHref || event.barLinkHref || "/shop/new-arrivals",
+      }
+    : {
+        eyebrow: settings.heroEyebrow,
+        title: settings.heroTitle,
+        subtitle: settings.heroSubtitle,
+        image: settings.heroImage,
+        ctaLabel: settings.heroCtaLabel || "Shop now",
+        ctaHref: settings.heroCtaHref || "/shop/new-arrivals",
+      };
+  const banners = event ? parseBanners(event.banners) : [];
+  const eventProducts = event?.collection
+    ? (await listProducts({ currency, q: event.collection })).items.filter((p) => p.collection?.toLowerCase() === event.collection!.toLowerCase()).slice(0, 8)
+    : [];
+
   return (
     <>
-      <section className={`hero${settings.heroImage ? " has-image" : ""}`}>
-        {settings.heroImage ? (
+      <section className={`hero${hero.image ? " has-image" : ""}`}>
+        {hero.image ? (
           <div className="hero-media">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={settings.heroImage} alt="" />
+            <img src={hero.image} alt="" />
           </div>
         ) : (
-          <div className="hero-art" aria-hidden />
+          <div className="hero-art" data-event={event ? themeSlug(event.theme) : undefined} aria-hidden />
         )}
         <div className="container">
           <div className="hero-content">
-            <span className="eyebrow">{settings.heroEyebrow}</span>
-            <h1>{settings.heroTitle}</h1>
-            <p>{settings.heroSubtitle}</p>
+            {hero.eyebrow && <span className="eyebrow">{hero.eyebrow}</span>}
+            <h1>{hero.title}</h1>
+            {hero.subtitle && <p>{hero.subtitle}</p>}
             <div className="row" style={{ marginTop: 22 }}>
-              <Link href={settings.heroCtaHref || "/shop/new-arrivals"} className="btn">{settings.heroCtaLabel || "Shop now"}</Link>
-              <Link href="/shop/girls" className="btn btn-outline" style={settings.heroImage ? { color: "#fff", borderColor: "#fff" } : undefined}>Shop girls</Link>
+              <Link href={hero.ctaHref} className={event ? "btn btn-accent" : "btn"}>{hero.ctaLabel}</Link>
+              <Link href="/shop/girls" className="btn btn-outline" style={hero.image ? { color: "#fff", borderColor: "#fff" } : undefined}>Shop girls</Link>
             </div>
           </div>
         </div>
       </section>
+
+      {event && (banners.length > 0 || eventProducts.length > 0) && (
+        <section className="section">
+          <div className="container">
+            <div className="section-head">
+              <div>
+                <span className="eyebrow">{event.name}</span>
+                <h2>{event.sectionTitle || `Shop ${event.name}`}</h2>
+              </div>
+              {event.collection && (
+                <Link href={`/search?q=${encodeURIComponent(event.collection)}`} className="btn btn-outline btn-sm">View all</Link>
+              )}
+            </div>
+            {banners.length > 0 && (
+              <div className="event-banners" style={{ marginBottom: eventProducts.length ? 32 : 0 }}>
+                {banners.map((b, i) => {
+                  const tile = (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={b.image} alt={b.title} loading={i < 3 ? "eager" : "lazy"} />
+                      {b.title && <span>{b.title}</span>}
+                    </>
+                  );
+                  return b.href ? (
+                    <Link key={i} href={b.href} className="event-banner">{tile}</Link>
+                  ) : (
+                    <div key={i} className="event-banner">{tile}</div>
+                  );
+                })}
+              </div>
+            )}
+            {eventProducts.length > 0 && (
+              <div className="product-grid">
+                {eventProducts.map((p, i) => (
+                  <ProductCard key={p.id} product={p} currency={currency} priority={i < 4} />
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       <div className="container">
         <div className="trust" style={{ marginTop: 0 }}>

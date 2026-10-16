@@ -5,10 +5,11 @@ import { cookies, headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import type { AdminRole, Department, OrderStatus, ProductStatus } from "@prisma/client";
+import type { AdminRole, Department, EventTheme, OrderStatus, ProductStatus } from "@prisma/client";
 import { audit, requireAdminPage } from "@/lib/auth";
 import { slugify } from "@/lib/catalog";
 import { prisma } from "@/lib/db";
+import { HEX_COLOUR, isSafeImage, isSitePath, parseBanners } from "@/lib/events";
 import { parseMoney } from "@/lib/money";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { createSessionToken, SESSION_COOKIE, SESSION_TTL_SECONDS } from "@/lib/session";
@@ -385,6 +386,94 @@ export async function updateSettings(_: FormState, fd: FormData): Promise<FormSt
   await audit(admin.id, "update", "Settings");
   revalidatePath("/", "layout");
   return { ok: "Settings saved." };
+}
+
+// ---------- Seasonal events ----------
+const THEMES: EventTheme[] = ["HALLOWEEN", "CHRISTMAS", "CUSTOM"];
+
+export async function saveEvent(_: FormState, fd: FormData): Promise<FormState> {
+  const admin = await requireAdminPage("settings");
+  const id = optStr(fd, "id");
+  const name = str(fd, "name").slice(0, 60);
+  if (name.length < 2) return { error: "Give the event a name, e.g. Halloween 2026." };
+  const theme = str(fd, "theme") as EventTheme;
+  if (!THEMES.includes(theme)) return { error: "Choose a theme." };
+  const barText = str(fd, "barText").slice(0, 200);
+  if (!barText) return { error: "Add the text for the bar at the top of the page." };
+  const heroTitle = str(fd, "heroTitle").slice(0, 120);
+  if (!heroTitle) return { error: "Add a homepage title for the event." };
+
+  const date = (k: string, end: boolean) => {
+    const v = str(fd, k);
+    if (!v) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return undefined;
+    return new Date(`${v}T${end ? "23:59:59" : "00:00:00"}Z`);
+  };
+  const startsAt = date("startsAt", false);
+  const endsAt = date("endsAt", true);
+  if (startsAt === undefined || endsAt === undefined) return { error: "Dates must be valid." };
+  if (startsAt && endsAt && endsAt < startsAt) return { error: "The end date must be after the start date." };
+
+  for (const k of ["barLinkHref", "heroCtaHref"])
+    if (str(fd, k) && !isSitePath(str(fd, k))) return { error: "Links must be pages on this site, starting with / (e.g. /shop/girls)." };
+  const heroImage = str(fd, "heroImage");
+  if (heroImage && !isSafeImage(heroImage)) return { error: "Hero image must be uploaded, an https:// URL or a path like /images/halloween.jpg." };
+  const accentColor = str(fd, "accentColor");
+  if (accentColor && !HEX_COLOUR.test(accentColor)) return { error: "Accent colour must look like #ff7a1a." };
+
+  let banners;
+  try {
+    const raw = z.array(z.object({ image: z.string(), title: z.string().max(80), href: z.string().max(300) })).max(12).parse(JSON.parse(str(fd, "banners") || "[]"));
+    banners = parseBanners(raw.filter((b) => b.image));
+    if (banners.length !== raw.filter((b) => b.image).length) return { error: "Each promo tile needs an uploaded image, and its link must start with /." };
+  } catch {
+    return { error: "Promo tiles could not be read — please try again." };
+  }
+
+  const data = {
+    name,
+    theme,
+    active: fd.get("active") === "on",
+    startsAt,
+    endsAt,
+    barText,
+    barLinkLabel: optStr(fd, "barLinkLabel")?.slice(0, 40) ?? null,
+    barLinkHref: optStr(fd, "barLinkHref"),
+    heroEyebrow: optStr(fd, "heroEyebrow")?.slice(0, 60) ?? null,
+    heroTitle,
+    heroSubtitle: optStr(fd, "heroSubtitle")?.slice(0, 300) ?? null,
+    heroImage: heroImage || null,
+    heroCtaLabel: optStr(fd, "heroCtaLabel")?.slice(0, 40) ?? null,
+    heroCtaHref: optStr(fd, "heroCtaHref"),
+    collection: optStr(fd, "collection")?.slice(0, 80) ?? null,
+    sectionTitle: optStr(fd, "sectionTitle")?.slice(0, 80) ?? null,
+    accentColor: accentColor || null,
+    decorations: fd.get("decorations") === "on",
+    banners,
+  };
+  const saved = id ? await prisma.seasonalEvent.update({ where: { id }, data }) : await prisma.seasonalEvent.create({ data });
+  await audit(admin.id, id ? "update" : "create", "SeasonalEvent", saved.id, `${name} · ${data.active ? "on" : "off"}`);
+  revalidatePath("/", "layout");
+  if (!id) redirect(`/admin/events/${saved.id}?saved=1`);
+  return { ok: "Event saved." };
+}
+
+export async function toggleEvent(fd: FormData) {
+  const admin = await requireAdminPage("settings");
+  const id = str(fd, "id");
+  const e = await prisma.seasonalEvent.findUniqueOrThrow({ where: { id } });
+  await prisma.seasonalEvent.update({ where: { id }, data: { active: !e.active } });
+  await audit(admin.id, e.active ? "deactivate" : "activate", "SeasonalEvent", id, e.name);
+  revalidatePath("/", "layout");
+}
+
+export async function deleteEvent(fd: FormData) {
+  const admin = await requireAdminPage("settings");
+  const id = str(fd, "id");
+  await prisma.seasonalEvent.delete({ where: { id } });
+  await audit(admin.id, "delete", "SeasonalEvent", id);
+  revalidatePath("/", "layout");
+  redirect("/admin/events");
 }
 
 // ---------- Staff ----------

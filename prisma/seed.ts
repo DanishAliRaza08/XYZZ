@@ -1,52 +1,126 @@
-// Seeds the super-admin account, starter categories and a few SAMPLE products so the shop
-// isn't empty on first run. Sample products are created as drafts unless SEED_PUBLISH_SAMPLES=1.
-// Replace them with your real catalogue in Admin → Products.
+// Seeds the super-admin account, categories, the imported product catalogue and the
+// Halloween / Christmas events. Safe to run again: existing products and events are left alone.
+//
+// Products come from prisma/data/products.json, created by `npm run import:products`
+// (photos are saved in public/images/products/). Set SEED_PRODUCT_STATUS=DRAFT to import them hidden.
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import bcrypt from "bcryptjs";
-import { PrismaClient, type Department } from "@prisma/client";
+import { PrismaClient, type ProductStatus } from "@prisma/client";
+import { CATEGORY_NAMES, type ImportedProduct } from "../scripts/import-shopify";
 
 const prisma = new PrismaClient();
 
-const CATEGORIES = [
-  ["dresses", "Dresses & occasionwear", "Party dresses, bridesmaid and celebration styles."],
-  ["tops", "Tops, T-shirts & shirts", null],
-  ["trousers", "Trousers, leggings & jeans", null],
-  ["skirts-shorts", "Skirts & shorts", null],
-  ["coats", "Coats & jackets", null],
-  ["knitwear", "Knitwear & cardigans", null],
-  ["nightwear", "Nightwear & loungewear", null],
-  ["sets", "Sets & co-ords", null],
-  ["accessories", "Shoes & accessories", null],
-] as const;
-
-type Sample = {
-  name: string; dept: Department; cat: string; gbp: number; sale?: number; usd?: number; collection?: string;
-  featured?: boolean; bestseller?: boolean; age?: string; colours: [string, string][]; sizes: string[]; description: string;
-};
-
-const KID = ["3-4y", "5-6y", "7-8y", "9-10y", "11-12y"];
-const WOMEN = ["8", "10", "12", "14", "16"];
-const BABY = ["0-3m", "3-6m", "6-12m", "12-18m", "18-24m"];
-
-const SAMPLES: Sample[] = [
-  { name: "Rosa Tulle Party Dress", dept: "GIRLS", cat: "dresses", gbp: 4500, usd: 5900, collection: "Celebration Edit", featured: true, bestseller: true, age: "3–12 years", colours: [["Blush", "#e8b4bc"], ["Ivory", "#f3ead8"]], sizes: KID, description: "A layered tulle party dress with a fitted bodice and full skirt, finished with a satin sash that ties at the back." },
-  { name: "Clara Sequin Bodice Dress", dept: "GIRLS", cat: "dresses", gbp: 5500, sale: 3900, usd: 7200, collection: "Celebration Edit", featured: true, age: "3–12 years", colours: [["Silver", "#c9c9cf"]], sizes: KID, description: "Sparkling sequin bodice with a soft net skirt — made for parties, weddings and every special occasion." },
-  { name: "Daisy Embroidered Cardigan", dept: "GIRLS", cat: "knitwear", gbp: 2800, usd: 3600, featured: true, age: "3–12 years", colours: [["Cream", "#efe6d2"], ["Sage", "#b7c4a8"]], sizes: KID, description: "A soft knitted cardigan with daisy embroidery and pearl-effect buttons." },
-  { name: "Oliver Linen-Look Shirt", dept: "BOYS", cat: "tops", gbp: 2200, usd: 2900, featured: true, age: "3–12 years", colours: [["Sky", "#a9c4dc"], ["White", "#f5f5f2"]], sizes: KID, description: "A smart short-sleeve shirt with a button-down collar, ideal for weddings and summer events." },
-  { name: "Harry Three-Piece Suit Set", dept: "BOYS", cat: "sets", gbp: 6500, usd: 8500, collection: "Celebration Edit", bestseller: true, age: "3–12 years", colours: [["Navy", "#26324a"]], sizes: KID, description: "Jacket, waistcoat and trousers in a tailored fit for page boys and formal occasions." },
-  { name: "Jack Chino Trousers", dept: "BOYS", cat: "trousers", gbp: 2000, sale: 1500, usd: 2600, age: "3–12 years", colours: [["Stone", "#cdbf9f"], ["Navy", "#26324a"]], sizes: KID, description: "Classic chinos with an adjustable waist and a smart pressed crease." },
-  { name: "Evelyn Wrap Midi Dress", dept: "WOMEN", cat: "dresses", gbp: 8900, usd: 11500, collection: "Autumn Occasion Edit", featured: true, bestseller: true, colours: [["Burgundy", "#7a2e3b"], ["Forest", "#2f4a3a"]], sizes: WOMEN, description: "A flattering wrap midi dress with a tie waist and fluted sleeves. Dress it up for weddings or down with boots." },
-  { name: "Isla Satin Slip Skirt", dept: "WOMEN", cat: "skirts-shorts", gbp: 4900, usd: 6400, colours: [["Champagne", "#d9c3a0"], ["Black", "#1c1a17"]], sizes: WOMEN, description: "A bias-cut satin midi skirt with an elasticated waist." },
-  { name: "Margot Wool-Blend Coat", dept: "WOMEN", cat: "coats", gbp: 14900, sale: 11900, usd: 19500, collection: "Autumn Occasion Edit", featured: true, colours: [["Camel", "#b8925f"]], sizes: WOMEN, description: "A tailored single-breasted coat with notch lapels and a longline silhouette." },
-  { name: "Ava Cable-Knit Jumper", dept: "WOMEN", cat: "knitwear", gbp: 5900, usd: 7700, bestseller: true, colours: [["Oatmeal", "#d8ccb6"], ["Navy", "#26324a"]], sizes: ["XS", "S", "M", "L", "XL"], description: "A relaxed cable-knit jumper with a ribbed crew neck." },
-  { name: "Luna Star Pyjama Set", dept: "GIRLS", cat: "nightwear", gbp: 1800, usd: 2400, age: "3–12 years", colours: [["Lilac", "#c7b7d8"]], sizes: KID, description: "Long-sleeve top and bottoms with a star print, designed for cosy nights." },
-  { name: "Bunny Knitted Romper", dept: "BABY", cat: "sets", gbp: 2400, usd: 3100, featured: true, bestseller: true, age: "0–24 months", colours: [["Blush", "#e8b4bc"], ["Cream", "#efe6d2"]], sizes: BABY, description: "A soft knitted romper with a bunny motif and popper fastening for easy changes." },
-  { name: "Freddie Quilted Jacket", dept: "BABY", cat: "coats", gbp: 3200, sale: 2400, usd: 4200, age: "0–24 months", colours: [["Sage", "#b7c4a8"]], sizes: BABY, description: "A lightweight quilted jacket with a cosy lining and hood." },
-  { name: "Poppy Ballet Flats", dept: "GIRLS", cat: "accessories", gbp: 2200, usd: 2900, age: "3–12 years", colours: [["Gold", "#c9a85b"], ["Blush", "#e8b4bc"]], sizes: ["UK 8", "UK 9", "UK 10", "UK 11", "UK 12", "UK 13", "UK 1", "UK 2"], description: "Party ballet flats with a bow trim and padded insole." },
+// The placeholder products earlier versions of the seed created. They are removed (or archived
+// when they have orders) so only the real catalogue is shown.
+const OLD_SAMPLE_SLUGS = [
+  "rosa-tulle-party-dress", "clara-sequin-bodice-dress", "daisy-embroidered-cardigan", "oliver-linen-look-shirt",
+  "harry-three-piece-suit-set", "jack-chino-trousers", "evelyn-wrap-midi-dress", "isla-satin-slip-skirt",
+  "margot-wool-blend-coat", "ava-cable-knit-jumper", "luna-star-pyjama-set", "bunny-knitted-romper",
+  "freddie-quilted-jacket", "poppy-ballet-flats",
 ];
 
-function sku(name: string, colour: string, size: string) {
-  const base = name.split(" ").map((w) => w[0]).join("").toUpperCase();
-  return `FR-${base}-${colour.slice(0, 3).toUpperCase()}-${size.replace(/[^A-Za-z0-9]/g, "").toUpperCase()}`;
+const DATA_FILE = path.resolve("prisma/data/products.json");
+
+async function removeSamples() {
+  const samples = await prisma.product.findMany({
+    where: { slug: { in: OLD_SAMPLE_SLUGS } },
+    select: { id: true, _count: { select: { variants: { where: { orderItems: { some: {} } } } } } },
+  });
+  for (const s of samples) {
+    if (s._count.variants > 0) await prisma.product.update({ where: { id: s.id }, data: { status: "ARCHIVED" } });
+    else await prisma.product.delete({ where: { id: s.id } });
+  }
+  if (samples.length) console.log(`Removed ${samples.length} placeholder sample products.`);
+}
+
+async function importCatalogue() {
+  if (!existsSync(DATA_FILE)) {
+    console.log("No prisma/data/products.json yet — run `npm run import:products` to fetch the catalogue.");
+    return;
+  }
+  const items = JSON.parse(readFileSync(DATA_FILE, "utf8")) as ImportedProduct[];
+  const status = (process.env.SEED_PRODUCT_STATUS === "DRAFT" ? "DRAFT" : "PUBLISHED") satisfies ProductStatus;
+  const categories = new Map((await prisma.category.findMany()).map((c) => [c.slug, c.id]));
+  let created = 0;
+  for (const p of items) {
+    if (await prisma.product.findUnique({ where: { slug: p.slug }, select: { id: true } })) continue;
+    let categoryId = categories.get(p.category);
+    if (!categoryId) {
+      const cat = await prisma.category.create({ data: { slug: p.category, name: CATEGORY_NAMES[p.category] ?? p.category, sortOrder: categories.size } });
+      categories.set(cat.slug, (categoryId = cat.id));
+    }
+    const skuTaken = await prisma.variant.findFirst({ where: { sku: { in: p.variants.map((v) => v.sku) } }, select: { sku: true } });
+    if (skuTaken) {
+      console.warn(`  skipped ${p.name}: SKU ${skuTaken.sku} already used by another product`);
+      continue;
+    }
+    await prisma.product.create({
+      data: {
+        slug: p.slug,
+        name: p.name,
+        description: p.description,
+        department: p.department,
+        categoryId,
+        status,
+        priceGBP: p.priceGBP,
+        salePriceGBP: p.salePriceGBP,
+        priceUSD: p.priceUSD,
+        salePriceUSD: p.salePriceUSD,
+        ageRange: p.ageRange,
+        collection: p.collection,
+        featured: created < 8,
+        variants: { create: p.variants.map((v, i) => ({ ...v, sortOrder: i })) },
+        images: { create: p.images.map((img, i) => ({ url: img.url, alt: img.alt, position: i })) },
+      },
+    });
+    created++;
+  }
+  console.log(`Imported ${created} new products as ${status} (${items.length - created} already existed or were skipped).`);
+}
+
+async function seedEvents() {
+  if ((await prisma.seasonalEvent.count()) > 0) return;
+  const year = new Date().getUTCFullYear();
+  await prisma.seasonalEvent.createMany({
+    data: [
+      {
+        name: `Halloween ${year}`,
+        theme: "HALLOWEEN",
+        active: true,
+        startsAt: new Date(`${year}-10-01T00:00:00Z`),
+        endsAt: new Date(`${year}-10-31T23:59:59Z`),
+        barText: "🎃 Halloween is here — spooky costumes & party outfits, with next-day UK delivery",
+        barLinkLabel: "Shop Halloween",
+        barLinkHref: "/search?q=Halloween",
+        heroEyebrow: "Spooky season",
+        heroTitle: "Trick or treat in style",
+        heroSubtitle: "Costumes, pumpkin-patch pyjamas and party outfits for little monsters — order by the 29th for Halloween.",
+        heroCtaLabel: "Shop the Halloween edit",
+        heroCtaHref: "/search?q=Halloween",
+        collection: "Halloween",
+        sectionTitle: "The Halloween shop",
+      },
+      {
+        name: `Christmas ${year}`,
+        theme: "CHRISTMAS",
+        active: true,
+        startsAt: new Date(`${year}-11-15T00:00:00Z`),
+        endsAt: new Date(`${year}-12-26T23:59:59Z`),
+        barText: "🎄 Christmas gifting is open — festive jumpers, pyjamas & party wear",
+        barLinkLabel: "Shop Christmas",
+        barLinkHref: "/search?q=Christmas",
+        heroEyebrow: "Merry & bright",
+        heroTitle: "Dressed for the festive season",
+        heroSubtitle: "Matching Christmas pyjamas, cosy jumpers and party outfits — wrapped up and delivered in time for the big day.",
+        heroCtaLabel: "Shop Christmas",
+        heroCtaHref: "/search?q=Christmas",
+        collection: "Christmas",
+        sectionTitle: "The Christmas shop",
+      },
+    ],
+  });
+  console.log("Created Halloween and Christmas events (edit them in Admin → Seasonal events).");
 }
 
 async function main() {
@@ -60,41 +134,12 @@ async function main() {
   });
   console.log(`Admin account ready: ${email}`);
 
-  for (const [i, [slug, name, description]] of CATEGORIES.entries())
-    await prisma.category.upsert({ where: { slug }, create: { slug, name, description, sortOrder: i }, update: {} });
+  for (const [i, [slug, name]] of Object.entries(CATEGORY_NAMES).entries())
+    await prisma.category.upsert({ where: { slug }, create: { slug, name, sortOrder: i }, update: {} });
 
-  if ((await prisma.product.count()) > 0) {
-    console.log("Products already exist — skipping sample products.");
-    return;
-  }
-  const status = process.env.SEED_PUBLISH_SAMPLES === "1" ? "PUBLISHED" : "DRAFT";
-  for (const s of SAMPLES) {
-    const cat = await prisma.category.findUniqueOrThrow({ where: { slug: s.cat } });
-    await prisma.product.create({
-      data: {
-        name: s.name,
-        slug: s.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-$/, ""),
-        description: s.description,
-        department: s.dept,
-        categoryId: cat.id,
-        status,
-        priceGBP: s.gbp,
-        salePriceGBP: s.sale ?? null,
-        priceUSD: s.usd ?? null,
-        salePriceUSD: s.sale && s.usd ? Math.round((s.usd * s.sale) / s.gbp) : null,
-        collection: s.collection ?? null,
-        featured: s.featured ?? false,
-        bestseller: s.bestseller ?? false,
-        ageRange: s.age ?? null,
-        variants: {
-          create: s.colours.flatMap(([colour, hex], ci) =>
-            s.sizes.map((size, si) => ({ sku: sku(s.name, colour, size), size, colour, colourHex: hex, stock: (si * 3 + ci * 5 + s.gbp) % 13, sortOrder: ci * 100 + si })),
-          ),
-        },
-      },
-    });
-  }
-  console.log(`Created ${SAMPLES.length} sample products as ${status}.`);
+  await removeSamples();
+  await importCatalogue();
+  await seedEvents();
 }
 
 main()

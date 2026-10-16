@@ -32,7 +32,7 @@ export default async function ChatsAdmin({ searchParams }: { searchParams: Promi
     <div className="stack">
       <AutoRefresh seconds={8} />
       <h1 style={{ fontSize: "2rem" }}>Customer chats</h1>
-      {!aiEnabled() && <div className="alert alert-warning">AI replies are off — set <code>ANTHROPIC_API_KEY</code> to enable the assistant. Customers can still reach your team.</div>}
+      {!aiEnabled() && <div className="alert alert-warning">AI replies are off — set <code>GEMINI_API_KEY</code> to enable the assistant. Customers can still reach your team.</div>}
       {!settings.whatsappNumber && <div className="alert alert-warning">No WhatsApp number set. <Link href="/admin/settings" style={{ textDecoration: "underline" }}>Add it in Site settings</Link> so customers can contact you directly.</div>}
       <div className="row">{tab("human", "Waiting for team")}{tab("ai", "With assistant")}{tab("all", "All")}</div>
       <div className="chat-admin">

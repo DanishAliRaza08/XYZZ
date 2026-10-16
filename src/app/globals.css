@@ -158,15 +158,28 @@ p { margin: 0 0 1em; }
 .logo:hover { text-decoration: none; }
 .header-actions { display: flex; justify-content: flex-end; align-items: center; gap: 2px; }
 .header-left { display: flex; align-items: center; gap: 4px; }
-.main-nav { border-top: 1px solid var(--border); }
-.main-nav ul { list-style: none; margin: 0; padding: 0; display: flex; justify-content: center; gap: clamp(14px, 3vw, 36px); }
-.main-nav li { position: relative; }
-.main-nav a.nav-link { display: block; padding: 13px 0; font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600; }
+.main-nav { position: relative; border-top: 1px solid var(--border); }
+.main-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; column-gap: clamp(14px, 2.4vw, 34px); }
+.main-nav li { position: static; }
+.main-nav a.nav-link { display: block; padding: 13px 0; font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600; border-bottom: 2px solid transparent; }
+.main-nav li:hover > a.nav-link, .main-nav li:focus-within > a.nav-link { border-bottom-color: currentColor; text-decoration: none; }
 .main-nav a.nav-sale { color: var(--accent); }
-.mega { position: absolute; left: 50%; transform: translateX(-50%); top: 100%; min-width: 460px; display: none; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); padding: 22px 26px; border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
-.main-nav li:hover .mega, .main-nav li:focus-within .mega { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 1180px) { .main-nav a.nav-link { font-size: 0.72rem; letter-spacing: 0.1em; } }
+/* Dropdown: full width under the menu bar, opens on hover or keyboard focus. */
+.mega { position: absolute; left: 0; right: 0; top: 100%; z-index: 45; display: none; background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); box-shadow: var(--shadow); padding: 28px 0 32px; }
+.main-nav li:hover .mega, .main-nav li:focus-within .mega { display: block; }
+.mega-inner { display: grid; grid-template-columns: minmax(200px, 260px) 1fr minmax(200px, 260px); gap: 36px; text-align: left; }
+.mega-intro h3 { font-size: 1.6rem; margin-bottom: 6px; }
+.mega-intro p { margin: 0 0 16px; }
+.mega-columns { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 20px 28px; }
 .mega h4 { margin: 0 0 8px; font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
-.mega a { display: block; padding: 4px 0; font-size: 0.92rem; }
+.mega-columns a { display: block; padding: 4px 0; font-size: 0.92rem; }
+.mega-promo { display: flex; flex-direction: column; gap: 6px; padding: 22px; border-radius: var(--radius-lg); background: linear-gradient(150deg, var(--accent-soft), var(--surface-2)); border: 1px solid var(--border); align-self: start; }
+.mega-promo strong { font-family: var(--font-serif); font-size: 1.35rem; font-weight: 500; }
+.mega-promo span { font-size: 0.88rem; color: var(--muted); }
+.mega-promo .mega-promo-cta { color: var(--accent); font-weight: 600; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 6px; }
+.mega-promo:hover { text-decoration: none; }
+@media (max-width: 1100px) { .mega-inner { grid-template-columns: 220px 1fr; } .mega-promo { display: none; } }
 .mobile-only { display: none; }
 @media (max-width: 900px) {
   .main-nav { display: none; }
@@ -183,6 +196,7 @@ p { margin: 0 0 1em; }
 .mobile-menu nav a { display: block; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 1.05rem; }
 .mobile-menu details summary { padding: 12px 0; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 1.05rem; list-style: none; }
 .mobile-menu details a { padding-left: 14px; font-size: 0.95rem; }
+.mobile-menu-group .eyebrow { margin: 14px 0 0 14px; }
 .search-panel { border-top: 1px solid var(--border); padding: 14px 0; }
 .search-panel form { display: flex; gap: 8px; }
 
@@ -203,15 +217,32 @@ p { margin: 0 0 1em; }
 .hero.has-image .hero-content { z-index: 2; }
 .hero p { font-size: 1.08rem; max-width: 520px; }
 
-/* Tiles */
+/* Tiles ("Shop by department" on the homepage) */
 .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 @media (max-width: 900px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .tiles { grid-template-columns: 1fr; } }
 .tile { position: relative; aspect-ratio: 3/4; border-radius: var(--radius); overflow: hidden; display: flex; align-items: flex-end; padding: 18px; background: var(--surface-2); border: 1px solid var(--border); }
 .tile:hover { text-decoration: none; }
-.tile:hover .tile-label { text-decoration: underline; }
 .tile-art { position: absolute; inset: 0; }
 .tile-label { position: relative; font-family: var(--font-serif); font-size: 1.5rem; }
 .tile-label small { display: block; font-family: var(--font-sans); font-size: 0.78rem; color: var(--muted); }
+.dept-tile { position: relative; display: flex; flex-direction: column; border-radius: var(--radius-lg); overflow: hidden; background: var(--surface); border: 1px solid var(--border); transition: box-shadow 0.2s ease, transform 0.2s ease; }
+.dept-tile:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+.dept-tile-media { display: block; aspect-ratio: 4/3; background: var(--surface-2); overflow: hidden; }
+.dept-tile-media img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
+.dept-tile:hover .dept-tile-media img { transform: scale(1.04); }
+.dept-tile-body { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px 18px; flex: 1; }
+.dept-tile-body h3 { font-size: 1.5rem; margin: 0; }
+.dept-tile-body h3 a:hover { text-decoration: none; }
+.dept-tile-body p { margin: 0; font-size: 0.88rem; color: var(--muted); }
+.dept-tile-links { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.82rem; margin: 2px 0 6px; }
+.dept-tile-links a { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border); }
+.dept-tile-links a:hover { text-decoration-color: currentColor; }
+.dept-tile .btn { margin-top: auto; align-self: flex-start; }
+
+.sub-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.sub-links .chip:hover { text-decoration: none; border-color: var(--text); }
+.chip.active { border-color: var(--text); background: var(--text); color: var(--bg); }
 
 .section-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 26px; flex-wrap: wrap; }
 .section-head h2 { margin: 0; }

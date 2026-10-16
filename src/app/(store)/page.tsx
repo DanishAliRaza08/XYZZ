@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/ProductCard";
-import { DEPARTMENTS, listProducts } from "@/lib/catalog";
+import { listProducts } from "@/lib/catalog";
 import { getCurrency } from "@/lib/currency-server";
 import { prisma } from "@/lib/db";
 import { getActiveEvent, isSafeImage, parseBanners, themeSlug } from "@/lib/events";
 import { formatMoney } from "@/lib/money";
+import { homeTiles } from "@/lib/navigation";
 import { getSettings } from "@/lib/settings";
 
 const TILE_TINTS = ["#c9a7ad", "#b9c4cf", "#c7c1a6", "#d8c5b5", "#a9b8a8"];
@@ -128,17 +129,29 @@ export default async function HomePage() {
             <div>
               <span className="eyebrow">Shop by department</span>
               <h2>Something for everyone</h2>
+              <p className="muted" style={{ margin: "6px 0 0" }}>Clothing, school kit, footwear and festival outfits for the whole family.</p>
             </div>
           </div>
           <div className="tiles">
-            {DEPARTMENTS.slice(0, 4).map((d, i) => (
-              <Link key={d.slug} href={`/shop/${d.slug}`} className="tile">
-                <div className="tile-art" style={{ background: `linear-gradient(170deg, ${TILE_TINTS[i]}40, ${TILE_TINTS[i]}aa)` }} aria-hidden />
-                <span className="tile-label">
-                  {d.label}
-                  <small>{d.blurb}</small>
-                </span>
-              </Link>
+            {homeTiles(settings.departmentTiles).map((t, i) => (
+              <article key={t.slug} className="dept-tile">
+                <Link href={t.href} className="dept-tile-media" tabIndex={-1} aria-hidden>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={t.image} alt="" loading={i < 4 ? "eager" : "lazy"} />
+                </Link>
+                <div className="dept-tile-body">
+                  <h3><Link href={t.href}>{t.title}</Link></h3>
+                  <p>{t.text}</p>
+                  {t.links.length > 0 && (
+                    <div className="dept-tile-links">
+                      {t.links.map((l) => (
+                        <Link key={l.href} href={l.href}>{l.label}</Link>
+                      ))}
+                    </div>
+                  )}
+                  <Link href={t.href} className="btn btn-sm">{t.button}</Link>
+                </div>
+              </article>
             ))}
           </div>
         </div>

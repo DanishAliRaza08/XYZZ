@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="festival">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a1d38"/><stop offset="1" stop-color="#4a2a52"/></linearGradient></defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <circle cx="300" cy="70" r="90" fill="#c84c06" opacity="0.45"/>
+  <circle cx="70" cy="250" r="70" fill="#c84c06" opacity="0.3"/>
+  <ellipse cx="200" cy="262" rx="120" ry="12" fill="#000" opacity="0.08"/>
+  <path d="M296 56 a40 40 0 1 0 22 70 a32 32 0 1 1 -22 -70 z" fill="#f2cf4a"/>
+  <path d="M110 52 l8 16 18 3 -13 12 3 18 -16 -9 -16 9 3 -18 -13 -12 18 -3 z" fill="#f2cf4a"/>
+  <path d="M340 160 l5 10 11 2 -8 7 2 11 -10 -5 -10 5 2 -11 -8 -7 11 -2 z" fill="#fff" opacity="0.8"/>
+  <path d="M196 120 Q192 100 204 92" stroke="#3f7a4f" stroke-width="9" fill="none" stroke-linecap="round"/>
+  <ellipse cx="160" cy="190" rx="48" ry="64" fill="#d8540b"/>
+  <ellipse cx="240" cy="190" rx="48" ry="64" fill="#d8540b"/>
+  <ellipse cx="200" cy="190" rx="52" ry="68" fill="#ff8a2a"/>
+  <path d="M170 172 l16 -16 16 16 z M214 172 l16 -16 16 16 z" fill="#2a1d38" transform="translate(-8 0)"/>
+  <path d="M162 210 q38 34 76 0 l-12 6 -8 -8 -10 10 -10 -10 -10 10 -8 -8 z" fill="#2a1d38"/>
+</svg>

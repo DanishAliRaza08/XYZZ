@@ -1,6 +1,7 @@
 import type { Department, Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import type { CurrencyCode } from "./money";
+import type { NavFilter } from "./navigation";
 import { resolvePrice } from "./pricing";
 
 export const DEPARTMENTS: { slug: string; value: Department; label: string; blurb: string }[] = [
@@ -22,6 +23,7 @@ export type ListingQuery = {
   department?: Department;
   categorySlug?: string;
   collection?: keyof typeof COLLECTIONS;
+  filter?: NavFilter; // a menu section or page (src/lib/navigation.ts)
   q?: string;
   sizes?: string[];
   colours?: string[];
@@ -57,9 +59,18 @@ export async function listProducts(q: ListingQuery) {
   if (q.collection === "sale")
     where.OR = q.currency === "GBP" ? [{ salePriceGBP: { not: null } }] : [{ salePriceUSD: { not: null } }];
   if (q.collection === "new-arrivals") where.createdAt = { gte: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60) };
+  const and: Prisma.ProductWhereInput[] = [];
+  if (q.filter) {
+    if (q.filter.department) where.department = q.filter.department;
+    // A product matches if it is in ANY of the listed categories OR collections.
+    const anyOf: Prisma.ProductWhereInput[] = [];
+    if (q.filter.categories?.length) anyOf.push({ category: { slug: { in: q.filter.categories } } });
+    for (const name of q.filter.collections ?? []) anyOf.push({ collection: { equals: name, mode: "insensitive" } });
+    if (anyOf.length) and.push({ OR: anyOf });
+  }
   if (q.q) {
     const term = q.q.slice(0, 80);
-    where.AND = [
+    and.push(
       {
         OR: [
           { name: { contains: term, mode: "insensitive" } },
@@ -70,8 +81,9 @@ export async function listProducts(q: ListingQuery) {
           { variants: { some: { colour: { contains: term, mode: "insensitive" } } } },
         ],
       },
-    ];
+    );
   }
+  if (and.length) where.AND = and;
 
   const all = await prisma.product.findMany({ where, include: listingInclude, orderBy: { createdAt: "desc" } });
 

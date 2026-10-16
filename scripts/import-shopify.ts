@@ -8,7 +8,10 @@
 // Only import products and photos you have permission to sell and reuse.
 import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { CATEGORY_NAMES } from "../src/lib/categories";
 import { sniffImage } from "../src/lib/uploads";
+
+export { CATEGORY_NAMES };
 
 type ShopifyProduct = {
   id: number;
@@ -28,7 +31,7 @@ export type ImportedProduct = {
   name: string;
   description: string;
   department: "WOMEN" | "MEN" | "GIRLS" | "BOYS" | "BABY";
-  category: string; // category slug (see CATEGORY_NAMES)
+  category: string; // category slug from src/lib/categories.ts
   collection: string | null;
   priceGBP: number; // pence
   salePriceGBP: number | null;
@@ -40,20 +43,6 @@ export type ImportedProduct = {
   source: string;
 };
 
-export const CATEGORY_NAMES: Record<string, string> = {
-  dresses: "Dresses & occasionwear",
-  tops: "Tops, T-shirts & shirts",
-  trousers: "Trousers, leggings & jeans",
-  "skirts-shorts": "Skirts & shorts",
-  coats: "Coats & jackets",
-  knitwear: "Knitwear & cardigans",
-  nightwear: "Nightwear & loungewear",
-  sets: "Sets & co-ords",
-  accessories: "Shoes & accessories",
-  "school-uniform": "School uniform",
-  costumes: "Fancy dress & costumes",
-  "more-styles": "More styles",
-};
 
 // ---------- options ----------
 const args = process.argv.slice(2);
@@ -115,28 +104,37 @@ const has = (text: string, re: RegExp) => re.test(text);
 
 export function department(text: string): ImportedProduct["department"] {
   if (has(text, /\b(baby|babies|infant|newborn|toddler|0-3 ?m|bodysuit|romper|sleepsuit)\b/)) return "BABY";
-  const girl = has(text, /\b(girls?|girl's|princess|dress|skirt|unicorn)\b/);
-  const boy = has(text, /\b(boys?|boy's)\b/);
-  if (girl && !boy) return "GIRLS";
-  if (boy && !girl) return "BOYS";
   if (has(text, /\b(women|womens|women's|ladies)\b/)) return "WOMEN";
   if (has(text, /\b(men|mens|men's)\b/)) return "MEN";
-  return boy ? "BOYS" : "GIRLS";
+  const girl = has(text, /\b(girls?|girl's)\b/);
+  const boy = has(text, /\b(boys?|boy's)\b/);
+  if (girl !== boy) return girl ? "GIRLS" : "BOYS";
+  // Unisex or unclear kids' items go to Girls — move them in Admin → Products if needed.
+  return "GIRLS";
 }
 
 export function category(text: string): string {
+  // First match wins, so more specific rules come first. Slugs are from src/lib/categories.ts.
   const rules: [RegExp, string][] = [
-    [/\b(costume|fancy dress|dress[- ]up|halloween outfit)\b/, "costumes"],
-    [/\b(school|uniform|pinafore|blazer)\b/, "school-uniform"],
-    [/\b(pyjamas?|pjs?|nightwear|nightie|nightdress|sleepsuit|onesie|dressing gown|robe|loungewear)\b/, "nightwear"],
+    [/\b(costumes?|fancy dress|dress[- ]up|world book day)\b/, "costumes"],
+    [/\b(pencil case|lunch ?bag|lunch ?box|school ?bag|backpack|rucksack|stationery|water bottle|book ?bag)\b/, "stationery"],
+    [/\b(school|uniform|pinafore|blazer|pe kit)\b/, "school-uniform"],
+    [/\b(shoes?|trainers?|boots?|sandals?|slippers?|sliders?|wellies|wellingtons|flip flops?|pumps)\b/, "footwear"],
+    [/\b(pyjamas?|pjs?|nightwear|nightie|nightdress|onesie|dressing gown|robe|loungewear)\b/, "nightwear"],
+    [/\b(bodysuits?|sleepsuits?|babygrows?|rompers?)\b/, "baby-essentials"],
+    [/\b(swim\w*|bikini|beachwear)\b/, "swimwear"],
+    [/\b(socks?|underwear|briefs|boxers?|knickers|vests?)\b/, "underwear-socks"],
+    [/\b(eid|diwali|kurta|shalwar|lehenga|abaya|thobe|jubba|sherwani|christmas jumper)\b/, "festive-wear"],
+    [/\b(suit|waistcoat|bridesmaid|flower girl|page ?boy|party ?dress|partywear|tutu)\b/, "partywear"],
     [/\b(tracksuit|set|co-ord|outfit|2 ?pc|3 ?pc|two piece|three piece)\b/, "sets"],
     [/\b(dress|dresses|gown)\b/, "dresses"],
-    [/\b(shoes?|trainers?|boots?|sandals?|slippers?|socks?|hats?|gloves?|scarf|bag|backpack|hair|accessor\w*)\b/, "accessories"],
-    [/\b(coat|jacket|gilet|puffer|raincoat|parka)\b/, "coats"],
+    [/\b(hats?|beanie|gloves?|mittens|scarf|bags?|hair|bows?|headband|accessor\w*|umbrella)\b/, "accessories"],
+    [/\b(coat|jacket|gilet|puffer|raincoat|parka|snowsuit)\b/, "coats"],
     [/\b(jumper|cardigan|knit\w*|sweater)\b/, "knitwear"],
+    [/\b(hoodie|hoody|sweatshirt|zip[- ]through)\b/, "hoodies"],
     [/\b(leggings?|jeans|trousers|joggers?|jogging bottoms|chinos)\b/, "trousers"],
-    [/\b(skirt|shorts)\b/, "skirts-shorts"],
-    [/\b(t-?shirt|tee|top|shirt|polo|vest|hoodie|sweatshirt|blouse)\b/, "tops"],
+    [/\b(skirts?|skort|shorts)\b/, "skirts-shorts"],
+    [/\b(t-?shirts?|tee|tops?|shirts?|polo|blouse)\b/, "tops"],
   ];
   return rules.find(([re]) => re.test(text))?.[1] ?? "more-styles";
 }
@@ -144,6 +142,9 @@ export function category(text: string): string {
 export function collection(text: string) {
   if (has(text, /\b(halloween|spooky|pumpkin|skeleton|witch|vampire)\b/)) return "Halloween";
   if (has(text, /\b(christmas|xmas|festive|santa|elf|reindeer|snowman)\b/)) return "Christmas";
+  if (has(text, /\b(eid|ramadan)\b/)) return "Eid";
+  if (has(text, /\b(diwali)\b/)) return "Diwali";
+  if (has(text, /\b(world book day|book week)\b/)) return "World Book Day";
   return null;
 }
 

@@ -7,7 +7,8 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import bcrypt from "bcryptjs";
 import { PrismaClient, type ProductStatus } from "@prisma/client";
-import { CATEGORY_NAMES, type ImportedProduct } from "../scripts/import-shopify";
+import type { ImportedProduct } from "../scripts/import-shopify";
+import { CATEGORIES, CATEGORY_NAMES } from "../src/lib/categories";
 
 const prisma = new PrismaClient();
 
@@ -134,8 +135,9 @@ async function main() {
   });
   console.log(`Admin account ready: ${email}`);
 
-  for (const [i, [slug, name]] of Object.entries(CATEGORY_NAMES).entries())
-    await prisma.category.upsert({ where: { slug }, create: { slug, name, sortOrder: i }, update: {} });
+  // Every category the menu links to (src/lib/categories.ts). Existing categories keep any edits made in the admin.
+  for (const [i, c] of CATEGORIES.entries())
+    await prisma.category.upsert({ where: { slug: c.slug }, create: { slug: c.slug, name: c.name, description: c.description, sortOrder: i }, update: {} });
 
   await removeSamples();
   await importCatalogue();

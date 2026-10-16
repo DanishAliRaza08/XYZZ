@@ -3,45 +3,16 @@ import { ChatWidget } from "@/components/ChatWidget";
 import { EventBar } from "@/components/EventBar";
 import { EventDecor } from "@/components/EventDecor";
 import { CurrencySwitcher } from "@/components/CurrencySwitcher";
-import { BagLink, MobileMenuButton, SearchToggle, WishlistLink, type NavItem } from "@/components/HeaderClient";
+import { BagLink, MobileMenuButton, SearchToggle, WishlistLink } from "@/components/HeaderClient";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { DEPARTMENTS } from "@/lib/catalog";
 import { getCurrency } from "@/lib/currency-server";
-import { prisma } from "@/lib/db";
 import { accentVars, getActiveEvent, themeSlug } from "@/lib/events";
+import { SECTIONS, sectionHref } from "@/lib/navigation";
+import { buildNav } from "@/lib/navigation-server";
 import { getSettings } from "@/lib/settings";
 import { NewsletterForm } from "@/components/NewsletterForm";
 
 export const dynamic = "force-dynamic";
-
-async function buildNav(): Promise<NavItem[]> {
-  const rows = await prisma.product.findMany({
-    where: { status: "PUBLISHED" },
-    select: { department: true, category: { select: { slug: true, name: true, sortOrder: true } } },
-    distinct: ["department", "categoryId"],
-  });
-  const nav: NavItem[] = [{ label: "New in", href: "/shop/new-arrivals" }];
-  for (const d of DEPARTMENTS) {
-    const cats = rows
-      .filter((r) => r.department === d.value)
-      .map((r) => r.category)
-      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
-    if (!cats.length) continue;
-    const links = cats.map((c) => ({ label: c.name, href: `/shop/${d.slug}/${c.slug}` }));
-    const half = Math.ceil(links.length / 2);
-    nav.push({
-      label: d.label,
-      href: `/shop/${d.slug}`,
-      groups: [
-        { title: "Shop by category", links: links.slice(0, half) },
-        { title: "More", links: links.slice(half) },
-      ].filter((g) => g.links.length),
-    });
-  }
-  nav.push({ label: "Bestsellers", href: "/shop/bestsellers" });
-  nav.push({ label: "Sale", href: "/shop/sale", sale: true });
-  return nav;
-}
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   const [settings, currency, nav, event] = await Promise.all([getSettings(), getCurrency(), buildNav(), getActiveEvent()]);
@@ -85,16 +56,32 @@ export default async function StoreLayout({ children }: { children: React.ReactN
             {nav.map((item) => (
               <li key={item.href}>
                 <Link href={item.href} className={`nav-link${item.sale ? " nav-sale" : ""}`}>{item.label}</Link>
-                {item.groups && (
+                {item.columns && (
                   <div className="mega">
-                    {item.groups.map((g) => (
-                      <div key={g.title}>
-                        <h4>{g.title}</h4>
-                        {g.links.map((l) => (
-                          <Link key={l.href} href={l.href}>{l.label}</Link>
+                    <div className="container mega-inner">
+                      <div className="mega-intro">
+                        <h3>{item.label}</h3>
+                        {item.description && <p className="muted small">{item.description}</p>}
+                        <Link href={item.href} className="btn btn-sm">Shop all {item.label}</Link>
+                      </div>
+                      <div className="mega-columns">
+                        {item.columns.map((col) => (
+                          <div key={col.title}>
+                            <h4>{col.title}</h4>
+                            {col.links.map((l) => (
+                              <Link key={l.href} href={l.href}>{l.label}</Link>
+                            ))}
+                          </div>
                         ))}
                       </div>
-                    ))}
+                      {item.promo && (
+                        <Link href={item.promo.href} className="mega-promo">
+                          <strong>{item.promo.title}</strong>
+                          <span>{item.promo.text}</span>
+                          <span className="mega-promo-cta">{item.promo.cta} →</span>
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 )}
               </li>
@@ -129,8 +116,8 @@ export default async function StoreLayout({ children }: { children: React.ReactN
             <div>
               <h4>Shop</h4>
               <ul>
-                {DEPARTMENTS.slice(0, 4).map((d) => (
-                  <li key={d.slug}><Link href={`/shop/${d.slug}`}>{d.label}</Link></li>
+                {SECTIONS.map((sec) => (
+                  <li key={sec.slug}><Link href={sectionHref(sec)}>{sec.label}</Link></li>
                 ))}
                 <li><Link href="/shop/sale">Sale</Link></li>
               </ul>

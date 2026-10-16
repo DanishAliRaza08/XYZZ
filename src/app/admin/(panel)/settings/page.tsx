@@ -1,7 +1,9 @@
 import { updateSettings } from "../../actions";
 import { ActionForm } from "@/components/admin/ActionForm";
+import { DepartmentTileFields } from "@/components/admin/DepartmentTileFields";
 import { requireAdminPage } from "@/lib/auth";
 import { toInputValue } from "@/lib/money";
+import { homeTiles } from "@/lib/navigation";
 import { getSettings } from "@/lib/settings";
 
 export default async function SettingsAdmin() {
@@ -36,6 +38,25 @@ export default async function SettingsAdmin() {
             {f("heroCtaLabel", "Button label", s.heroCtaLabel)}
             {f("heroCtaHref", "Button link", s.heroCtaHref, { placeholder: "/shop/new-arrivals" })}
           </div>
+        </section>
+        <section className="panel stack">
+          <h3>Shop by department tiles</h3>
+          <p className="muted small">
+            The picture cards on the homepage. Upload your own photo (JPG, PNG or WebP, up to 5MB — a 4:3 landscape photo looks best) and change the text or
+            button. Leave a field empty to use the default. To add or remove tiles, see README → “Menu, categories and pages”.
+          </p>
+          <DepartmentTileFields
+            tiles={homeTiles().map((t) => ({
+              slug: t.slug,
+              title: t.title,
+              defaultImage: t.image,
+              defaultText: t.text,
+              defaultButton: t.button,
+              image: s.departmentTiles[t.slug]?.image ?? "",
+              text: s.departmentTiles[t.slug]?.text ?? "",
+              button: s.departmentTiles[t.slug]?.button ?? "",
+            }))}
+          />
         </section>
         <section className="panel stack">
           <h3>Delivery charges</h3>

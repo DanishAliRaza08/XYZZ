@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="footwear">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e1f1ef"/><stop offset="1" stop-color="#b9dcd7"/></linearGradient></defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <circle cx="300" cy="70" r="90" fill="#8cc7bf" opacity="0.45"/>
+  <circle cx="70" cy="250" r="70" fill="#8cc7bf" opacity="0.3"/>
+  <ellipse cx="200" cy="262" rx="120" ry="12" fill="#000" opacity="0.08"/>
+  <path d="M74 196 Q76 150 120 140 L176 118 Q196 110 208 126 L236 162 Q300 166 326 190 Q338 204 330 214 L76 214 Z" fill="#2b6f78"/>
+  <path d="M120 140 L176 118 Q196 110 208 126 L236 162 L150 168 Z" fill="#3f8f99"/>
+  <rect x="68" y="208" width="270" height="26" rx="13" fill="#f5f5f2"/>
+  <rect x="68" y="224" width="270" height="10" rx="5" fill="#d8ccb6"/>
+  <g stroke="#f5f5f2" stroke-width="5" stroke-linecap="round"><line x1="178" y1="132" x2="196" y2="146"/><line x1="190" y1="122" x2="208" y2="138"/><line x1="166" y1="142" x2="184" y2="156"/></g>
+  <path d="M240 176 Q270 190 300 186" fill="none" stroke="#f2cf4a" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="300" cy="221" r="4" fill="#e6792b"/><circle cx="270" cy="221" r="4" fill="#f2cf4a"/><circle cx="240" cy="221" r="4" fill="#3b6fb6"/>
+</svg>

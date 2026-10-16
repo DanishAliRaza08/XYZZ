@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { BagIcon, CloseIcon, HeartIcon, MenuIcon, SearchIcon } from "./Icons";
 import { useStore } from "./StoreProvider";
 
-export type NavItem = { label: string; href: string; groups?: { title: string; links: { label: string; href: string }[] }[]; sale?: boolean };
+import type { NavItem } from "@/lib/navigation";
 
 export function MobileMenuButton({ nav }: { nav: NavItem[] }) {
   const [open, setOpen] = useState(false);
@@ -20,7 +21,8 @@ export function MobileMenuButton({ nav }: { nav: NavItem[] }) {
       <button type="button" className="icon-btn mobile-only" aria-label="Open menu" aria-expanded={open} onClick={() => setOpen(true)}>
         <MenuIcon />
       </button>
-      {open && (
+      {/* Rendered into <body>: the sticky header's backdrop blur would otherwise trap this full-screen panel inside the header. */}
+      {open && createPortal(
         <div className="mobile-menu" role="dialog" aria-modal="true" aria-label="Menu">
           <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
             <strong className="eyebrow" style={{ margin: 0 }}>Menu</strong>
@@ -34,12 +36,17 @@ export function MobileMenuButton({ nav }: { nav: NavItem[] }) {
           </form>
           <nav>
             {nav.map((item) =>
-              item.groups ? (
+              item.columns ? (
                 <details key={item.href}>
                   <summary>{item.label}</summary>
                   <Link href={item.href}>Shop all {item.label}</Link>
-                  {item.groups.flatMap((g) => g.links).map((l) => (
-                    <Link key={l.href} href={l.href}>{l.label}</Link>
+                  {item.columns.map((col) => (
+                    <div key={col.title} className="mobile-menu-group">
+                      <span className="eyebrow">{col.title}</span>
+                      {col.links.map((l) => (
+                        <Link key={l.href} href={l.href}>{l.label}</Link>
+                      ))}
+                    </div>
                   ))}
                 </details>
               ) : (
@@ -51,7 +58,8 @@ export function MobileMenuButton({ nav }: { nav: NavItem[] }) {
             <Link href="/delivery-returns">Delivery & returns</Link>
             <Link href="/contact">Contact us</Link>
           </nav>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

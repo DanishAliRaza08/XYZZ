@@ -7,6 +7,8 @@ describe("product import mapping", () => {
     expect(department(" girls unicorn hoodie ")).toBe("GIRLS");
     expect(department(" boys football tracksuit ")).toBe("BOYS");
     expect(department(" baby sleepsuit 0-3m ")).toBe("BABY");
+    expect(department(" womens wrap midi dress ")).toBe("WOMEN");
+    expect(department(" mens lounge pyjamas ")).toBe("MEN");
   });
   it("maps product types to categories", () => {
     expect(category(" kids witch costume ")).toBe("costumes");

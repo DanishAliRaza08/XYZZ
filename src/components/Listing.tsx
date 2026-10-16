@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Department } from "@prisma/client";
 import { COLLECTIONS, listProducts, type ListingQuery } from "@/lib/catalog";
 import { formatMoney, parseMoney, type CurrencyCode } from "@/lib/money";
+import type { NavFilter } from "@/lib/navigation";
 import { AutoSubmitForm } from "./AutoSubmitForm";
 import { ProductCard } from "./ProductCard";
 
@@ -32,7 +33,10 @@ export async function Listing(props: {
   department?: Department;
   categorySlug?: string;
   collection?: keyof typeof COLLECTIONS;
+  filter?: NavFilter;
   q?: string;
+  // Quick links to the other pages in this menu section, shown under the title.
+  subLinks?: { label: string; href: string; active?: boolean }[];
 }) {
   const sp = props.searchParams;
   const sort = (SORTS.find((s) => s.value === one(sp.sort))?.value ?? "recommended") as ListingQuery["sort"];
@@ -48,6 +52,7 @@ export async function Listing(props: {
     department: props.department,
     categorySlug: props.categorySlug,
     collection: props.collection,
+    filter: props.filter,
     q: props.q,
     sizes,
     colours,
@@ -131,6 +136,13 @@ export async function Listing(props: {
       <header style={{ margin: "12px 0 28px" }}>
         <h1>{props.title}</h1>
         {props.blurb && <p className="muted">{props.blurb}</p>}
+        {props.subLinks && props.subLinks.length > 0 && (
+          <nav className="sub-links" aria-label="In this section">
+            {props.subLinks.map((l) => (
+              <Link key={l.href} href={l.href} className={`chip${l.active ? " active" : ""}`} aria-current={l.active ? "page" : undefined}>{l.label}</Link>
+            ))}
+          </nav>
+        )}
       </header>
 
       <div className="listing" style={{ paddingBottom: 60 }}>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="boys">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e3edf7"/><stop offset="1" stop-color="#c2d5ea"/></linearGradient></defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <circle cx="300" cy="70" r="90" fill="#9dbbe0" opacity="0.45"/>
+  <circle cx="70" cy="250" r="70" fill="#9dbbe0" opacity="0.3"/>
+  <ellipse cx="200" cy="262" rx="120" ry="12" fill="#000" opacity="0.08"/>
+  <path d="M152 62 L118 76 L82 118 L114 140 L138 120 L138 252 L262 252 L262 120 L286 140 L318 118 L282 76 L248 62 Q200 96 152 62 Z" fill="#2f5d9a"/>
+  <path d="M168 66 Q200 92 232 66" fill="none" stroke="#f5f5f2" stroke-width="7" stroke-linecap="round"/>
+  <rect x="138" y="168" width="124" height="16" fill="#f5f5f2"/>
+  <rect x="138" y="196" width="124" height="16" fill="#f2cf4a"/>
+  <path d="M200 124 l7 14 15 2 -11 10 3 15 -14 -7 -14 7 3 -15 -11 -10 15 -2 z" fill="#f2cf4a"/>
+</svg>

@@ -17,7 +17,12 @@ export type SiteSettings = {
   vatNumber: string;
   usStoreEnabled: boolean;
   shipping: ShippingRates;
+  // Admin overrides for the homepage "Shop by department" tiles, keyed by menu section slug
+  // (src/lib/navigation.ts). Empty values fall back to the defaults in navigation.ts.
+  departmentTiles: Record<string, DepartmentTileOverride>;
 };
+
+export type DepartmentTileOverride = { image: string; text: string; button: string };
 
 export const DEFAULT_SETTINGS: SiteSettings = {
   announcement: "Free UK standard delivery on orders over £50 · Free returns within 28 days",
@@ -35,6 +40,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   vatNumber: "",
   usStoreEnabled: true,
   shipping: DEFAULT_SHIPPING,
+  departmentTiles: {},
 };
 
 const KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof SiteSettings)[];

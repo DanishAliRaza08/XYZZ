@@ -27,3 +27,13 @@ describe("admin session tokens", () => {
     expect(verifySessionToken("abc", Date.now(), KEY)).toBeNull();
   });
 });
+
+describe("paymentIntentIdFromSecret", () => {
+  it("extracts the PaymentIntent id from a client secret and rejects anything else", async () => {
+    const { paymentIntentIdFromSecret } = await import("../src/lib/stripe");
+    expect(paymentIntentIdFromSecret("pi_3Abc123_secret_XyZ789")).toBe("pi_3Abc123");
+    expect(paymentIntentIdFromSecret("pi_3Abc123")).toBeNull();
+    expect(paymentIntentIdFromSecret("seti_1_secret_2")).toBeNull();
+    expect(paymentIntentIdFromSecret("pi_1_secret_2; drop")).toBeNull();
+  });
+});

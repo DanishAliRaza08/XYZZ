@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import type Stripe from "stripe";
 import { CheckoutRequest } from "@/lib/checkout-schema";
 import { getCurrency } from "@/lib/currency-server";
 import { prisma } from "@/lib/db";
@@ -7,10 +6,16 @@ import { createPendingOrder } from "@/lib/orders";
 import { buildQuote } from "@/lib/quote";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
-import { getStripe, siteUrl } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Step 1 of checkout: validates the bag and delivery details, creates a PENDING_PAYMENT order and a Stripe
+ * PaymentIntent for the server-calculated total, and returns its client secret. The browser then shows Stripe's
+ * card form (Payment Element) on our checkout page; card details go straight to Stripe, never to this server.
+ * The order is marked paid by the webhook (payment_intent.succeeded) or the success page, after asking Stripe.
+ */
 export async function POST(req: NextRequest) {
   if (!rateLimit(`checkout:${clientIp(req.headers)}`, 10, 60_000))
     return NextResponse.json({ error: "Too many checkout attempts. Please wait a minute." }, { status: 429 });
@@ -39,55 +44,38 @@ export async function POST(req: NextRequest) {
   if (discountCode && !quote.discountCode) return NextResponse.json({ error: quote.discountError ?? "Invalid discount code" }, { status: 400 });
 
   const order = await createPendingOrder(quote, customer);
-  const cur = currency.toLowerCase();
 
   try {
-    let discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined;
-    if (quote.discount > 0) {
-      const coupon = await stripe.coupons.create(
-        { amount_off: quote.discount, currency: cur, duration: "once", max_redemptions: 1, name: `Discount ${quote.discountCode}` },
-        { idempotencyKey: `coupon-${order.id}` },
-      );
-      discounts = [{ coupon: coupon.id }];
-    }
-
-    const session = await stripe.checkout.sessions.create(
+    const intent = await stripe.paymentIntents.create(
       {
-        mode: "payment",
-        customer_email: customer.email,
-        client_reference_id: order.id,
+        amount: quote.total,
+        currency: currency.toLowerCase(),
+        // Cards plus whatever else is switched on in the Stripe Dashboard (Apple Pay, Google Pay, …).
+        automatic_payment_methods: { enabled: true },
+        receipt_email: customer.email,
+        description: `Fashion Rockstar order ${order.number}`,
         metadata: { orderId: order.id, orderNumber: order.number },
-        payment_intent_data: { metadata: { orderId: order.id, orderNumber: order.number } },
-        line_items: quote.lines.map((l) => ({
-          quantity: l.quantity,
-          price_data: {
-            currency: cur,
-            unit_amount: l.unitPrice,
-            product_data: { name: l.productName, description: `${l.colour} · ${l.size} · ${l.sku}` },
+        shipping: {
+          name: customer.name,
+          phone: customer.phone || undefined,
+          address: {
+            line1: customer.addressLine1,
+            line2: customer.addressLine2 || undefined,
+            city: customer.city,
+            state: customer.region || undefined,
+            postal_code: customer.postcode,
+            country: customer.country,
           },
-        })),
-        discounts,
-        shipping_options: [
-          {
-            shipping_rate_data: {
-              type: "fixed_amount",
-              display_name: shippingMethod === "express" ? "Express delivery" : "Standard delivery",
-              fixed_amount: { amount: quote.shipping, currency: cur },
-            },
-          },
-        ],
-        success_url: `${siteUrl()}/checkout/success?order=${order.number}&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${siteUrl()}/bag?cancelled=1`,
-        expires_at: Math.floor(Date.now() / 1000) + 60 * 60, // 1 hour
+        },
       },
-      { idempotencyKey: `checkout-${order.id}` },
+      { idempotencyKey: `pi-${order.id}` },
     );
 
-    await prisma.order.update({ where: { id: order.id }, data: { stripeSessionId: session.id } });
-    return NextResponse.json({ url: session.url, orderNumber: order.number });
+    await prisma.order.update({ where: { id: order.id }, data: { stripePaymentId: intent.id } });
+    return NextResponse.json({ clientSecret: intent.client_secret, orderNumber: order.number, total: quote.total, currency });
   } catch (err) {
-    console.error("Stripe checkout session failed", err);
-    await prisma.order.update({ where: { id: order.id }, data: { status: "CANCELLED", notes: "Payment session could not be created." } });
+    console.error("Stripe payment intent failed", err);
+    await prisma.order.update({ where: { id: order.id }, data: { status: "CANCELLED", notes: "Payment could not be started." } });
     return NextResponse.json({ error: "We couldn't start the payment. Please try again in a moment." }, { status: 502 });
   }
 }

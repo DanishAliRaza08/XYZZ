@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import type { Quote } from "./quote";
+import { getStripe } from "./stripe";
 
 export type CustomerDetails = {
   email: string;
@@ -50,7 +51,8 @@ export async function createPendingOrder(quote: Quote, customer: CustomerDetails
 }
 
 /**
- * Called only from a verified payment webhook. Idempotent: an order that is no longer
+ * Called only after Stripe has confirmed the payment: from the signature-verified webhook, or from the
+ * success page after retrieving the PaymentIntent from Stripe's API (never on the browser's word). Idempotent: an order that is no longer
  * PENDING_PAYMENT is left untouched. Stock is decremented with a guarded update so it can
  * never go negative; if any line cannot be allocated, the order is flagged NEEDS_ATTENTION.
  */
@@ -94,4 +96,27 @@ export async function markOrderPaid(opts: {
 
 export async function cancelUnpaidOrder(orderId: string) {
   await prisma.order.updateMany({ where: { id: orderId, status: "PENDING_PAYMENT" }, data: { status: "CANCELLED" } });
+}
+
+/**
+ * For the thank-you page: finds the order the customer just paid for. The order number and Stripe's payment id
+ * must both match, so the URL can't be used to look at other orders. If the order is still pending, Stripe is
+ * asked directly whether the payment succeeded, so the page doesn't have to wait for the webhook.
+ */
+export async function findPaidOrder(opts: { orderNumber?: string; paymentIntentId?: string; checkoutSessionId?: string }) {
+  if (!opts.orderNumber) return null;
+  const include = { items: true } as const;
+  if (opts.paymentIntentId) {
+    const order = await prisma.order.findFirst({ where: { number: opts.orderNumber, stripePaymentId: opts.paymentIntentId }, include });
+    if (order?.status !== "PENDING_PAYMENT") return order;
+    const intent = await getStripe()?.paymentIntents.retrieve(opts.paymentIntentId).catch(() => null);
+    if (intent?.status === "succeeded" && intent.metadata?.orderId === order.id) {
+      await markOrderPaid({ orderId: order.id, paymentId: intent.id, amountPaid: intent.amount_received, currency: intent.currency });
+      return prisma.order.findUnique({ where: { id: order.id }, include });
+    }
+    return order;
+  }
+  // Orders paid on Stripe's hosted checkout page (earlier versions of the shop).
+  if (opts.checkoutSessionId) return prisma.order.findFirst({ where: { number: opts.orderNumber, stripeSessionId: opts.checkoutSessionId }, include });
+  return null;
 }

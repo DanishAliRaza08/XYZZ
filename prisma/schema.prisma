@@ -50,8 +50,8 @@ enum OrderStatus {
 }
 
 enum ChatStatus {
-  AI          // assistant is answering
-  HUMAN       // customer asked for a person; staff reply from the admin inbox
+  AI // assistant is answering
+  HUMAN // customer asked for a person; staff reply from the admin inbox
   CLOSED
 }
 
@@ -74,41 +74,41 @@ model AdminUser {
 }
 
 model Category {
-  id          String     @id @default(cuid())
-  slug        String     @unique
+  id          String    @id @default(cuid())
+  slug        String    @unique
   name        String
   description String?
-  sortOrder   Int        @default(0)
+  sortOrder   Int       @default(0)
   products    Product[]
-  createdAt   DateTime   @default(now())
+  createdAt   DateTime  @default(now())
 }
 
 model Product {
-  id            String         @id @default(cuid())
-  slug          String         @unique
-  name          String
-  description   String
-  department    Department
-  categoryId    String
-  category      Category       @relation(fields: [categoryId], references: [id])
-  status        ProductStatus  @default(DRAFT)
+  id           String         @id @default(cuid())
+  slug         String         @unique
+  name         String
+  description  String
+  department   Department
+  categoryId   String
+  category     Category       @relation(fields: [categoryId], references: [id])
+  status       ProductStatus  @default(DRAFT)
   // Prices in minor units. Sale prices are optional and must be lower than the regular price.
-  priceGBP      Int
-  salePriceGBP  Int?
-  priceUSD      Int?           // null = not sold in the US store
-  salePriceUSD  Int?
-  composition   String?        // e.g. "100% cotton" — only enter verified information
-  care          String?
-  origin        String?
-  ageRange      String?        // e.g. "3–8 years"
-  featured      Boolean        @default(false)
-  bestseller    Boolean        @default(false)
-  collection    String?        // e.g. "Autumn Occasion Edit"
-  sellerId      String?        // reserved for the marketplace phase
-  images        ProductImage[]
-  variants      Variant[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  priceGBP     Int
+  salePriceGBP Int?
+  priceUSD     Int? // null = not sold in the US store
+  salePriceUSD Int?
+  composition  String? // e.g. "100% cotton" — only enter verified information
+  care         String?
+  origin       String?
+  ageRange     String? // e.g. "3–8 years"
+  featured     Boolean        @default(false)
+  bestseller   Boolean        @default(false)
+  collection   String? // e.g. "Autumn Occasion Edit"
+  sellerId     String? // reserved for the marketplace phase
+  images       ProductImage[]
+  variants     Variant[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   @@index([status, department])
   @@index([categoryId])
@@ -142,47 +142,47 @@ model Variant {
 }
 
 model DiscountCode {
-  id          String    @id @default(cuid())
-  code        String    @unique
-  percentOff  Int?      // 1–90
-  amountOffGBP Int?     // minor units, applied to GBP orders only
+  id             String    @id @default(cuid())
+  code           String    @unique
+  percentOff     Int? // 1–90
+  amountOffGBP   Int? // minor units, applied to GBP orders only
   minSubtotalGBP Int?
-  active      Boolean   @default(true)
-  expiresAt   DateTime?
-  usageLimit  Int?
-  timesUsed   Int       @default(0)
-  createdAt   DateTime  @default(now())
+  active         Boolean   @default(true)
+  expiresAt      DateTime?
+  usageLimit     Int?
+  timesUsed      Int       @default(0)
+  createdAt      DateTime  @default(now())
 }
 
 model Order {
-  id                String      @id @default(cuid())
-  number            String      @unique
-  status            OrderStatus @default(PENDING_PAYMENT)
-  currency          Currency
-  email             String
-  name              String
-  phone             String?
-  addressLine1      String
-  addressLine2      String?
-  city              String
-  region            String?
-  postcode          String
-  country           String      // ISO 3166-1 alpha-2
-  shippingMethod    String
-  subtotal          Int
-  discount          Int         @default(0)
-  shipping          Int
-  total             Int
-  discountCode      String?
-  stripeSessionId   String?     @unique
-  stripePaymentId   String?
-  trackingNumber    String?
-  trackingCarrier   String?
-  notes             String?
-  items             OrderItem[]
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  paidAt            DateTime?
+  id              String      @id @default(cuid())
+  number          String      @unique
+  status          OrderStatus @default(PENDING_PAYMENT)
+  currency        Currency
+  email           String
+  name            String
+  phone           String?
+  addressLine1    String
+  addressLine2    String?
+  city            String
+  region          String?
+  postcode        String
+  country         String // ISO 3166-1 alpha-2
+  shippingMethod  String
+  subtotal        Int
+  discount        Int         @default(0)
+  shipping        Int
+  total           Int
+  discountCode    String?
+  stripeSessionId String?     @unique
+  stripePaymentId String?
+  trackingNumber  String?
+  trackingCarrier String?
+  notes           String?
+  items           OrderItem[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  paidAt          DateTime?
 
   @@index([status, createdAt])
   @@index([email])
@@ -212,16 +212,16 @@ model WebhookEvent {
 }
 
 model ChatConversation {
-  id           String        @id @default(cuid())
+  id            String        @id @default(cuid())
   // Random secret held by the visitor's browser — required to read or post to the conversation.
-  visitorToken String
-  status       ChatStatus    @default(AI)
-  customerName String?
+  visitorToken  String
+  status        ChatStatus    @default(AI)
+  customerName  String?
   customerEmail String?
-  unreadByStaff Boolean      @default(false)
-  messages     ChatMessage[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  unreadByStaff Boolean       @default(false)
+  messages      ChatMessage[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@index([status, updatedAt])
 }
@@ -259,4 +259,41 @@ model AuditLog {
   createdAt DateTime   @default(now())
 
   @@index([createdAt])
+}
+
+enum EventTheme {
+  HALLOWEEN
+  CHRISTMAS
+  CUSTOM
+}
+
+// Seasonal takeovers (Halloween, Christmas, …). While an event is live, the storefront shows its
+// bar at the top, switches to the event's colour theme and uses its homepage content.
+model SeasonalEvent {
+  id           String     @id @default(cuid())
+  name         String
+  theme        EventTheme @default(CUSTOM)
+  active       Boolean    @default(false)
+  startsAt     DateTime? // null = live as soon as it's switched on
+  endsAt       DateTime? // null = runs until switched off
+  barText      String
+  barLinkLabel String?
+  barLinkHref  String?
+  heroEyebrow  String?
+  heroTitle    String
+  heroSubtitle String?
+  heroImage    String?
+  heroCtaLabel String?
+  heroCtaHref  String?
+  // Products whose "collection" equals this are shown in the event's shop section on the homepage.
+  collection   String?
+  sectionTitle String?
+  accentColor  String? // optional #rrggbb override of the theme's accent colour
+  decorations  Boolean    @default(true) // falling bats / snow
+  // Promo tiles: [{ "image": "/uploads/…", "title": "…", "href": "/…" }]
+  banners      Json       @default("[]")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([active, startsAt])
 }

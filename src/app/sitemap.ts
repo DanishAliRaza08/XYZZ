@@ -1,6 +1,8 @@
+// /sitemap.xml for search engines: static pages, every menu section and page, admin-created categories and products.
 import type { MetadataRoute } from "next";
 import { DEPARTMENTS } from "@/lib/catalog";
 import { prisma } from "@/lib/db";
+import { SECTIONS, sectionHref, sectionPages } from "@/lib/navigation";
 import { siteUrl } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
@@ -12,10 +14,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     prisma.product.findMany({ where: { status: "PUBLISHED" }, select: { department: true, category: { select: { slug: true } } }, distinct: ["department", "categoryId"] }),
   ]);
   const staticPaths = ["", "/shop/new-arrivals", "/shop/bestsellers", "/shop/sale", "/delivery-returns", "/size-guide", "/faq", "/contact", "/about", "/privacy", "/terms", "/cookies"];
+  const menuPaths = SECTIONS.flatMap((s) => [sectionHref(s), ...sectionPages(s).map((p) => sectionHref(s, p))]);
+  const categoryPaths = cats.map((c) => `/shop/${DEPARTMENTS.find((d) => d.value === c.department)!.slug}/${c.category.slug}`);
   return [
-    ...staticPaths.map((p) => ({ url: `${base}${p}` })),
-    ...DEPARTMENTS.map((d) => ({ url: `${base}/shop/${d.slug}` })),
-    ...cats.map((c) => ({ url: `${base}/shop/${DEPARTMENTS.find((d) => d.value === c.department)!.slug}/${c.category.slug}` })),
+    ...[...new Set([...staticPaths, ...menuPaths, ...categoryPaths])].map((p) => ({ url: `${base}${p}` })),
     ...products.map((p) => ({ url: `${base}/product/${p.slug}`, lastModified: p.updatedAt })),
   ];
 }

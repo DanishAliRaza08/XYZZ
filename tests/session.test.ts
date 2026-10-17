@@ -37,3 +37,11 @@ describe("paymentIntentIdFromSecret", () => {
     expect(paymentIntentIdFromSecret("pi_1_secret_2; drop")).toBeNull();
   });
 });
+
+describe("customer session tokens", () => {
+  it("can last longer than admin sessions", () => {
+    const thirtyDays = 60 * 60 * 24 * 30;
+    const token = createSessionToken("cust1", "customer", Date.now() - 10 * 24 * 60 * 60 * 1000, KEY, thirtyDays);
+    expect(verifySessionToken(token, Date.now(), KEY)?.role).toBe("customer");
+  });
+});

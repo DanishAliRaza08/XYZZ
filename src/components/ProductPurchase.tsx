@@ -1,16 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
+import { photosForColour } from "@/lib/photos";
 import { HeartIcon } from "./Icons";
 import { useStore } from "./StoreProvider";
 
 type V = { id: string; size: string; colour: string; colourHex: string; stock: number };
 
+// The selected colour is shared by the colour buttons (ProductPurchase) and the photos (Gallery),
+// so picking "White" shows the white photos.
+const ColourContext = createContext<{ colour: string | undefined; setColour: (c: string) => void }>({ colour: undefined, setColour: () => {} });
+
+/** Wraps the product page; starts on the first colour that has stock. */
+export function ProductColourProvider({ variants, children }: { variants: Pick<V, "colour" | "stock">[]; children: React.ReactNode }) {
+  const [colour, setColour] = useState(() => (variants.find((v) => v.stock > 0) ?? variants[0])?.colour);
+  return <ColourContext.Provider value={{ colour, setColour }}>{children}</ColourContext.Provider>;
+}
+
 export function ProductPurchase({ slug, name, variants, sizes, purchasable }: { slug: string; name: string; variants: V[]; sizes: string[]; purchasable: boolean }) {
   const { addToBag, wishlist, toggleWishlist } = useStore();
   const colours = useMemo(() => [...new Map(variants.map((v) => [v.colour, v.colourHex])).entries()], [variants]);
-  const [colour, setColour] = useState(colours.length === 1 ? colours[0][0] : (colours.find(([c]) => variants.some((v) => v.colour === c && v.stock > 0))?.[0] ?? colours[0]?.[0]));
+  const { colour, setColour } = useContext(ColourContext);
   const [size, setSize] = useState<string | null>(sizes.length === 1 ? sizes[0] : null);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
@@ -87,8 +98,11 @@ export function ProductPurchase({ slug, name, variants, sizes, purchasable }: { 
   );
 }
 
-export function Gallery({ images, name, hex }: { images: { url: string; alt: string }[]; name: string; hex: string }) {
+export function Gallery({ images: allImages, name, hexByColour }: { images: { url: string; alt: string; colour: string | null }[]; name: string; hexByColour: Record<string, string> }) {
   const [zoom, setZoom] = useState<string | null>(null);
+  const { colour } = useContext(ColourContext);
+  const images = photosForColour(allImages, colour);
+  const hex = (colour && hexByColour[colour]) || Object.values(hexByColour)[0] || "#cccccc";
   if (!images.length)
     return (
       <div className="gallery">

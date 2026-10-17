@@ -53,6 +53,7 @@ export function MobileMenuButton({ nav }: { nav: NavItem[] }) {
                 <Link key={item.href} href={item.href} style={item.sale ? { color: "var(--accent)" } : undefined}>{item.label}</Link>
               ),
             )}
+            <Link href="/account">My account</Link>
             <Link href="/wishlist">Wishlist</Link>
             <Link href="/order-status">Track an order</Link>
             <Link href="/delivery-returns">Delivery & returns</Link>

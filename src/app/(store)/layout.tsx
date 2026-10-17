@@ -4,7 +4,9 @@ import { EventBar } from "@/components/EventBar";
 import { EventDecor } from "@/components/EventDecor";
 import { CurrencySwitcher } from "@/components/CurrencySwitcher";
 import { BagLink, MobileMenuButton, SearchToggle, WishlistLink } from "@/components/HeaderClient";
+import { UserIcon } from "@/components/Icons";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { getCustomer } from "@/lib/customer";
 import { getCurrency } from "@/lib/currency-server";
 import { accentVars, getActiveEvent, themeSlug } from "@/lib/events";
 import { SECTIONS, sectionHref } from "@/lib/navigation";
@@ -15,7 +17,7 @@ import { NewsletterForm } from "@/components/NewsletterForm";
 export const dynamic = "force-dynamic";
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
-  const [settings, currency, nav, event] = await Promise.all([getSettings(), getCurrency(), buildNav(), getActiveEvent()]);
+  const [settings, currency, nav, event, customer] = await Promise.all([getSettings(), getCurrency(), buildNav(), getActiveEvent(), getCustomer()]);
   const year = new Date().getFullYear();
   return (
     <div
@@ -47,6 +49,9 @@ export default async function StoreLayout({ children }: { children: React.ReactN
           </Link>
           <div className="header-actions">
             <ThemeToggle />
+            <Link href="/account" className="icon-btn" aria-label={customer ? `My account (${customer.name})` : "Sign in or create an account"} title={customer ? "My account" : "Sign in"}>
+              <UserIcon />
+            </Link>
             <WishlistLink />
             <BagLink />
           </div>

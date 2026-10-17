@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { AdminRole } from "@prisma/client";
 import { prisma } from "./db";
-import { SESSION_COOKIE, verifySessionToken } from "./session";
+import { CUSTOMER_ROLE, SESSION_COOKIE, verifySessionToken } from "./session";
 
 export type Permission = "dashboard" | "products" | "orders" | "chats" | "settings" | "staff";
 
@@ -22,7 +22,7 @@ export function can(role: AdminRole, permission: Permission) {
 export async function getAdmin() {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   const payload = verifySessionToken(token);
-  if (!payload) return null;
+  if (!payload || payload.role === CUSTOMER_ROLE) return null;
   const admin = await prisma.adminUser.findUnique({ where: { id: payload.sub } });
   if (!admin || !admin.active) return null;
   return admin;

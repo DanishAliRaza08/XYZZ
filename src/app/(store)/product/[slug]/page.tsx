@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PriceTag, ProductCard } from "@/components/ProductCard";
-import { Gallery, ProductPurchase } from "@/components/ProductPurchase";
+import { Gallery, ProductColourProvider, ProductPurchase } from "@/components/ProductPurchase";
 import { DEPARTMENTS, getProductBySlug, listProducts, sortSizes } from "@/lib/catalog";
 import { getCurrency } from "@/lib/currency-server";
 import { formatMoney } from "@/lib/money";
@@ -66,53 +66,59 @@ export default async function ProductPage({ params }: Props) {
         </ol>
       </nav>
 
-      <div className="pdp">
-        <Gallery images={product.images.map((i) => ({ url: i.url, alt: i.alt }))} name={product.name} hex={product.variants[0]?.colourHex ?? "#cccccc"} />
-
-        <div className="pdp-info">
-          {product.collection && <span className="eyebrow">{product.collection}</span>}
-          <h1 style={{ fontSize: "clamp(1.8rem, 3vw, 2.5rem)" }}>{product.name}</h1>
-          <PriceTag product={product} currency={currency} />
-          <p className="muted small" style={{ marginTop: 6 }}>
-            {currency === "GBP" ? "Price includes VAT." : "Price excludes any US sales tax and import duties."}
-            {product.ageRange ? ` · Age ${product.ageRange}` : ""}
-          </p>
-
-          <ProductPurchase
-            slug={product.slug}
+      <ProductColourProvider variants={product.variants.map((v) => ({ colour: v.colour, stock: v.stock }))}>
+        <div className="pdp">
+          <Gallery
+            images={product.images.map((i) => ({ url: i.url, alt: i.alt, colour: i.colour }))}
             name={product.name}
-            purchasable={Boolean(price)}
-            sizes={sizes}
-            variants={product.variants.map((v) => ({ id: v.id, size: v.size, colour: v.colour, colourHex: v.colourHex, stock: Math.max(0, v.stock) }))}
+            hexByColour={Object.fromEntries(product.variants.map((v) => [v.colour, v.colourHex]))}
           />
 
-          <div style={{ marginTop: 24 }}>
-            <details className="acc" open>
-              <summary>Description</summary>
-              <div><p style={{ whiteSpace: "pre-line" }}>{product.description}</p></div>
-            </details>
-            {(product.composition || product.care || product.origin) && (
+          <div className="pdp-info">
+            {product.collection && <span className="eyebrow">{product.collection}</span>}
+            <h1 style={{ fontSize: "clamp(1.8rem, 3vw, 2.5rem)" }}>{product.name}</h1>
+            <PriceTag product={product} currency={currency} />
+            <p className="muted small" style={{ marginTop: 6 }}>
+              {currency === "GBP" ? "Price includes VAT." : "Price excludes any US sales tax and import duties."}
+              {product.ageRange ? ` · Age ${product.ageRange}` : ""}
+            </p>
+
+            <ProductPurchase
+              slug={product.slug}
+              name={product.name}
+              purchasable={Boolean(price)}
+              sizes={sizes}
+              variants={product.variants.map((v) => ({ id: v.id, size: v.size, colour: v.colour, colourHex: v.colourHex, stock: Math.max(0, v.stock) }))}
+            />
+
+            <div style={{ marginTop: 24 }}>
+              <details className="acc" open>
+                <summary>Description</summary>
+                <div><p style={{ whiteSpace: "pre-line" }}>{product.description}</p></div>
+              </details>
+              {(product.composition || product.care || product.origin) && (
+                <details className="acc">
+                  <summary>Fabric & care</summary>
+                  <div>
+                    {product.composition && <p><strong>Composition:</strong> {product.composition}</p>}
+                    {product.care && <p><strong>Care:</strong> {product.care}</p>}
+                    {product.origin && <p><strong>Country of origin:</strong> {product.origin}</p>}
+                  </div>
+                </details>
+              )}
               <details className="acc">
-                <summary>Fabric & care</summary>
+                <summary>Delivery & returns</summary>
                 <div>
-                  {product.composition && <p><strong>Composition:</strong> {product.composition}</p>}
-                  {product.care && <p><strong>Care:</strong> {product.care}</p>}
-                  {product.origin && <p><strong>Country of origin:</strong> {product.origin}</p>}
+                  <p>
+                    Standard delivery {formatMoney(ship.standard, currency)} — free on orders over {formatMoney(ship.freeOver, currency)}. Express delivery {formatMoney(ship.express, currency)}.
+                  </p>
+                  <p>Free returns within 28 days of delivery. <Link href="/delivery-returns" style={{ textDecoration: "underline" }}>Full details</Link></p>
                 </div>
               </details>
-            )}
-            <details className="acc">
-              <summary>Delivery & returns</summary>
-              <div>
-                <p>
-                  Standard delivery {formatMoney(ship.standard, currency)} — free on orders over {formatMoney(ship.freeOver, currency)}. Express delivery {formatMoney(ship.express, currency)}.
-                </p>
-                <p>Free returns within 28 days of delivery. <Link href="/delivery-returns" style={{ textDecoration: "underline" }}>Full details</Link></p>
-              </div>
-            </details>
+            </div>
           </div>
         </div>
-      </div>
+      </ProductColourProvider>
 
       {fallbackRelated.length > 0 && (
         <section className="section" style={{ paddingTop: 0 }}>

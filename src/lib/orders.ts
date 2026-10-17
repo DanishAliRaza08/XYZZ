@@ -16,16 +16,30 @@ export type CustomerDetails = {
   country: string;
 };
 
+/** Order statuses in words customers understand (order tracking and the account page). */
+export const ORDER_STATUS_LABELS: Record<string, string> = {
+  PENDING_PAYMENT: "Awaiting payment",
+  PAID: "Payment received — preparing your order",
+  NEEDS_ATTENTION: "Payment received — our team is reviewing your order",
+  PROCESSING: "Being prepared",
+  SHIPPED: "Dispatched",
+  DELIVERED: "Delivered",
+  CANCELLED: "Cancelled",
+  REFUNDED: "Refunded",
+};
+
 export function generateOrderNumber(now = new Date()) {
   const d = now.toISOString().slice(2, 10).replace(/-/g, "");
   return `FR-${d}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 }
 
-export async function createPendingOrder(quote: Quote, customer: CustomerDetails) {
+/** accountId links the order to a signed-in shop customer so it shows on their account page. */
+export async function createPendingOrder(quote: Quote, customer: CustomerDetails, accountId: string | null = null) {
   if (!quote.ok) throw new Error("Quote is not valid");
   return prisma.order.create({
     data: {
       number: generateOrderNumber(),
+      customerId: accountId,
       currency: quote.currency,
       ...customer,
       shippingMethod: quote.shippingMethod,

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { CheckoutRequest } from "@/lib/checkout-schema";
 import { getCurrency } from "@/lib/currency-server";
+import { ensureStripeCustomer, getCustomer } from "@/lib/customer";
 import { prisma } from "@/lib/db";
 import { createPendingOrder } from "@/lib/orders";
 import { buildQuote } from "@/lib/quote";
@@ -15,6 +16,8 @@ export const dynamic = "force-dynamic";
  * PaymentIntent for the server-calculated total, and returns its client secret. The browser then shows Stripe's
  * card form (Payment Element) on our checkout page; card details go straight to Stripe, never to this server.
  * The order is marked paid by the webhook (payment_intent.succeeded) or the success page, after asking Stripe.
+ * For signed-in customers the payment is attached to their Stripe customer, so the card form also lists their
+ * saved cards and offers "Save payment details for future purchases" (a Stripe CustomerSession).
  */
 export async function POST(req: NextRequest) {
   if (!rateLimit(`checkout:${clientIp(req.headers)}`, 10, 60_000))
@@ -43,15 +46,23 @@ export async function POST(req: NextRequest) {
   if (!quote.ok) return NextResponse.json({ error: "Some items in your bag have changed. Please review your bag.", quote }, { status: 409 });
   if (discountCode && !quote.discountCode) return NextResponse.json({ error: quote.discountError ?? "Invalid discount code" }, { status: 400 });
 
-  const order = await createPendingOrder(quote, customer);
+  const account = await getCustomer();
+  const order = await createPendingOrder(quote, customer, account?.id ?? null);
+  if (account) {
+    // Remember the delivery address so checkout is filled in next time.
+    const { email: _email, name: _name, country: _country, ...address } = customer;
+    await prisma.customer.update({ where: { id: account.id }, data: address });
+  }
 
   try {
+    const stripeCustomerId = account ? await ensureStripeCustomer(account) : null;
     const intent = await stripe.paymentIntents.create(
       {
         amount: quote.total,
         currency: currency.toLowerCase(),
         // Cards plus whatever else is switched on in the Stripe Dashboard (Apple Pay, Google Pay, …).
         automatic_payment_methods: { enabled: true },
+        customer: stripeCustomerId ?? undefined,
         receipt_email: customer.email,
         description: `Fashion Rockstar order ${order.number}`,
         metadata: { orderId: order.id, orderNumber: order.number },
@@ -71,8 +82,31 @@ export async function POST(req: NextRequest) {
       { idempotencyKey: `pi-${order.id}` },
     );
 
+    const customerSession = stripeCustomerId
+      ? await stripe.customerSessions.create({
+          customer: stripeCustomerId,
+          components: {
+            payment_element: {
+              enabled: true,
+              features: {
+                payment_method_redisplay: "enabled",
+                payment_method_save: "enabled",
+                payment_method_save_usage: "on_session",
+                payment_method_remove: "enabled",
+              },
+            },
+          },
+        })
+      : null;
+
     await prisma.order.update({ where: { id: order.id }, data: { stripePaymentId: intent.id } });
-    return NextResponse.json({ clientSecret: intent.client_secret, orderNumber: order.number, total: quote.total, currency });
+    return NextResponse.json({
+      clientSecret: intent.client_secret,
+      customerSessionClientSecret: customerSession?.client_secret ?? null,
+      orderNumber: order.number,
+      total: quote.total,
+      currency,
+    });
   } catch (err) {
     console.error("Stripe payment intent failed", err);
     await prisma.order.update({ where: { id: order.id }, data: { status: "CANCELLED", notes: "Payment could not be started." } });

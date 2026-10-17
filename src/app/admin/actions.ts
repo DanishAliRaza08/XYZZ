@@ -60,7 +60,8 @@ const VariantInput = z.object({
   colourHex: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   stock: z.coerce.number().int().min(0).max(100000),
 });
-const ImageInput = z.object({ url: z.string().trim().min(1).max(500), alt: z.string().trim().max(200) });
+// colour: which variant colour the photo shows (empty = all colours); the product page swaps photos when the colour changes.
+const ImageInput = z.object({ url: z.string().trim().min(1).max(500), alt: z.string().trim().max(200), colour: z.string().trim().max(40).nullish() });
 
 export async function saveProduct(_: FormState, fd: FormData): Promise<FormState> {
   const admin = await requireAdminPage("products");
@@ -138,7 +139,18 @@ export async function saveProduct(_: FormState, fd: FormData): Promise<FormState
         else await tx.variant.create({ data: { ...vData, productId: product.id } });
       }
       await tx.productImage.deleteMany({ where: { productId: product.id } });
-      if (images.length) await tx.productImage.createMany({ data: images.map((img, i) => ({ ...img, alt: img.alt || name, position: i, productId: product.id })) });
+      const colours = new Set(variants.map((v) => v.colour));
+      if (images.length)
+        await tx.productImage.createMany({
+          data: images.map((img, i) => ({
+            url: img.url,
+            alt: img.alt || name,
+            // A colour that no longer exists on any variant falls back to "all colours".
+            colour: img.colour && colours.has(img.colour) ? img.colour : null,
+            position: i,
+            productId: product.id,
+          })),
+        });
       return product.id;
     });
   } catch (e) {

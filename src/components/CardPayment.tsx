@@ -40,10 +40,24 @@ function shopAppearance(): Appearance {
   };
 }
 
-export function CardPayment(props: { publishableKey: string; clientSecret: string; orderNumber: string; amountLabel: string; billing: BillingDetails }) {
+/**
+ * customerSessionClientSecret is set for signed-in customers: Stripe then lists their saved cards above the card
+ * form and shows a "Save payment details for future purchases" checkbox.
+ */
+export function CardPayment(props: {
+  publishableKey: string;
+  clientSecret: string;
+  customerSessionClientSecret?: string | null;
+  orderNumber: string;
+  amountLabel: string;
+  billing: BillingDetails;
+}) {
   const [appearance] = useState(shopAppearance);
   return (
-    <Elements stripe={stripeFor(props.publishableKey)} options={{ clientSecret: props.clientSecret, appearance, locale: "en-GB" }}>
+    <Elements
+      stripe={stripeFor(props.publishableKey)}
+      options={{ clientSecret: props.clientSecret, customerSessionClientSecret: props.customerSessionClientSecret ?? undefined, appearance, locale: "en-GB" }}
+    >
       <PayForm {...props} />
     </Elements>
   );

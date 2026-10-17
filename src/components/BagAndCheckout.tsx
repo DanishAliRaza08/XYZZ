@@ -117,20 +117,23 @@ export function BagView({ cancelled }: { cancelled: boolean }) {
 
 type Fields = { email: string; name: string; phone: string; addressLine1: string; addressLine2: string; city: string; region: string; postcode: string };
 
-type PaymentStep = { clientSecret: string; orderNumber: string; total: number };
+type PaymentStep = { clientSecret: string; customerSessionClientSecret: string | null; orderNumber: string; total: number };
+
+/** Details from a signed-in customer's account, used to fill in the form. */
+export type CheckoutPrefill = Partial<Fields>;
 
 /**
  * Checkout in two steps on one page: 1) contact, delivery address and method, then "Continue to payment"
  * creates the order; 2) the card form (CardPayment) appears and the customer pays without leaving the page.
  */
-export function CheckoutView({ currency, publishableKey }: { currency: CurrencyCode; publishableKey: string | null }) {
+export function CheckoutView({ currency, publishableKey, prefill }: { currency: CurrencyCode; publishableKey: string | null; prefill?: CheckoutPrefill }) {
   const paymentsEnabled = Boolean(publishableKey);
   const [payment, setPayment] = useState<PaymentStep | null>(null);
   const [method, setMethod] = useState<"standard" | "express">("standard");
   const [codeInput, setCodeInput] = useState("");
   const [code, setCode] = useState<string | null>(null);
   const { quote, loading, error } = useQuote(method, code);
-  const [f, setF] = useState<Fields>({ email: "", name: "", phone: "", addressLine1: "", addressLine2: "", city: "", region: "", postcode: "" });
+  const [f, setF] = useState<Fields>({ email: "", name: "", phone: "", addressLine1: "", addressLine2: "", city: "", region: "", postcode: "", ...prefill });
   const [terms, setTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -166,7 +169,7 @@ export function CheckoutView({ currency, publishableKey }: { currency: CurrencyC
         setSubmitting(false);
         return;
       }
-      setPayment({ clientSecret: data.clientSecret, orderNumber: data.orderNumber, total: data.total });
+      setPayment({ clientSecret: data.clientSecret, customerSessionClientSecret: data.customerSessionClientSecret ?? null, orderNumber: data.orderNumber, total: data.total });
       setSubmitting(false);
     } catch {
       setFormError("Network error — please check your connection and try again.");
@@ -273,7 +276,7 @@ export function CheckoutView({ currency, publishableKey }: { currency: CurrencyC
           ) : (
             <div className="stack" style={{ marginTop: 14, gap: 10 }}>
               <div className="row" style={{ justifyContent: "space-between" }}>
-                <h3 style={{ margin: 0 }}>Card details</h3>
+                <h3 style={{ margin: 0 }}>Pay by card</h3>
                 <button type="button" className="btn btn-sm btn-ghost" onClick={editDetails} disabled={submitting}>Edit details</button>
               </div>
               <p className="muted small" style={{ margin: 0 }}>Order {payment.orderNumber} · delivering to {f.name}, {f.postcode}</p>
@@ -281,6 +284,7 @@ export function CheckoutView({ currency, publishableKey }: { currency: CurrencyC
               <CardPayment
                 publishableKey={publishableKey!}
                 clientSecret={payment.clientSecret}
+                customerSessionClientSecret={payment.customerSessionClientSecret}
                 orderNumber={payment.orderNumber}
                 amountLabel={formatMoney(payment.total, c)}
                 billing={{

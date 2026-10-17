@@ -4,18 +4,30 @@
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-type FakeIntent = { id: string; client_secret: string; status: string; amount: number; amount_received: number; currency: string; metadata: Record<string, string> };
+type FakeIntent = { id: string; client_secret: string; status: string; amount: number; amount_received: number; currency: string; metadata: Record<string, string>; customer?: string };
 
 const fake = vi.hoisted(() => {
   const intents = new Map<string, FakeIntent>();
   let n = 0;
   return {
     intents,
+    // The signed-in shop customer (null = guest checkout).
+    account: null as null | { id: string },
+    customerSessions: [] as { customer: string; components: unknown }[],
     stripe: {
+      customers: {
+        create: async () => ({ id: `cus_test${Date.now()}${n++}` }),
+      },
+      customerSessions: {
+        create: async (params: { customer: string; components: unknown }) => {
+          fake.customerSessions.push(params);
+          return { client_secret: `cuss_secret_test${n++}` };
+        },
+      },
       paymentIntents: {
-        create: async (params: { amount: number; currency: string; metadata: Record<string, string> }) => {
+        create: async (params: { amount: number; currency: string; metadata: Record<string, string>; customer?: string }) => {
           const id = `pi_test${Date.now()}${n++}`;
-          const pi = { id, client_secret: `${id}_secret_abc123`, status: "requires_payment_method", amount: params.amount, amount_received: 0, currency: params.currency, metadata: params.metadata };
+          const pi = { id, client_secret: `${id}_secret_abc123`, status: "requires_payment_method", amount: params.amount, amount_received: 0, currency: params.currency, metadata: params.metadata, customer: params.customer };
           intents.set(id, pi);
           return pi;
         },
@@ -34,6 +46,10 @@ const fake = vi.hoisted(() => {
 
 vi.mock("@/lib/stripe", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/stripe")>()), getStripe: () => fake.stripe }));
 vi.mock("@/lib/currency-server", () => ({ getCurrency: async () => "GBP" }));
+vi.mock("@/lib/customer", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/customer")>()),
+  getCustomer: async () => (fake.account ? (await import("@/lib/db")).prisma.customer.findUnique({ where: { id: fake.account.id } }) : null),
+}));
 
 const { prisma } = await import("@/lib/db");
 const checkout = await import("@/app/api/checkout/route");
@@ -50,8 +66,11 @@ const customer = { email: "card-test@example.com", name: "Card Tester", phone: "
 const post = (url: string, body: unknown, headers: Record<string, string> = {}) =>
   new NextRequest(`http://localhost${url}`, { method: "POST", body: typeof body === "string" ? body : JSON.stringify(body), headers: { "content-type": "application/json", ...headers } });
 
+let checkouts = 0;
 async function startCheckout(variantId: string) {
-  const res = await checkout.POST(post("/api/checkout", { lines: [{ variantId, quantity: 2 }], shippingMethod: "standard", discountCode: null, customer, acceptTerms: true }));
+  // A different address per checkout keeps the tests under the checkout rate limit (10 a minute per IP).
+  const ip = { "x-forwarded-for": `10.0.0.${++checkouts}` };
+  const res = await checkout.POST(post("/api/checkout", { lines: [{ variantId, quantity: 2 }], shippingMethod: "standard", discountCode: null, customer, acceptTerms: true }, ip));
   const data = await res.json();
   expect(res.status, JSON.stringify(data)).toBe(200);
   const order = await prisma.order.findUniqueOrThrow({ where: { number: data.orderNumber } });
@@ -78,6 +97,7 @@ describe.skipIf(!enabled)("on-page card payments (database)", () => {
 
   afterAll(async () => {
     await prisma.order.deleteMany({ where: { email: customer.email } });
+    await prisma.customer.deleteMany({ where: { email: { startsWith: tag } } });
     await prisma.product.deleteMany({ where: { slug: { startsWith: tag } } });
     await prisma.category.deleteMany({ where: { slug: `${tag}-cat` } });
     await prisma.$disconnect();
@@ -152,6 +172,34 @@ describe.skipIf(!enabled)("on-page card payments (database)", () => {
     intent.status = "succeeded";
     expect((await cancel.POST(post("/api/checkout/cancel", { orderNumber: order.number, clientSecret: intent.client_secret }))).status).toBe(409);
     expect((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).status).toBe("PENDING_PAYMENT");
+  });
+
+  it("signed-in customers: order goes on their account, saved cards are offered and the address is remembered", async () => {
+    const account = await prisma.customer.create({ data: { email: `${tag}@example.com`, name: "Account Holder", passwordHash: "x" } });
+    fake.account = { id: account.id };
+    try {
+      const { data, order, intent } = await startCheckout(variantId);
+      const saved = await prisma.customer.findUniqueOrThrow({ where: { id: account.id } });
+      expect(order.customerId).toBe(account.id);
+      expect(saved.stripeCustomerId).toMatch(/^cus_test/);
+      expect(intent.customer).toBe(saved.stripeCustomerId);
+      expect(data.customerSessionClientSecret).toMatch(/^cuss_secret_test/);
+      expect(fake.customerSessions.at(-1)).toMatchObject({ customer: saved.stripeCustomerId, components: { payment_element: { enabled: true, features: { payment_method_save: "enabled", payment_method_redisplay: "enabled" } } } });
+      expect(saved).toMatchObject({ addressLine1: customer.addressLine1, city: customer.city, postcode: customer.postcode });
+
+      // A second checkout reuses the same Stripe customer, so cards saved last time are shown.
+      const again = await startCheckout(variantId);
+      expect(again.intent.customer).toBe(saved.stripeCustomerId);
+    } finally {
+      fake.account = null;
+    }
+  });
+
+  it("guest checkout has no account, Stripe customer or saved cards", async () => {
+    const { data, order, intent } = await startCheckout(variantId);
+    expect(order.customerId).toBeNull();
+    expect(intent.customer).toBeUndefined();
+    expect(data.customerSessionClientSecret).toBeNull();
   });
 
   it("webhook payment_intent.canceled cancels the unpaid order", async () => {

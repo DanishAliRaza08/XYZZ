@@ -1,20 +1,10 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
+import { ORDER_STATUS_LABELS as LABELS } from "@/lib/orders";
 
 export const metadata: Metadata = { title: "Track your order", robots: { index: false } };
 export const dynamic = "force-dynamic";
-
-const LABELS: Record<string, string> = {
-  PENDING_PAYMENT: "Awaiting payment",
-  PAID: "Payment received — preparing your order",
-  NEEDS_ATTENTION: "Payment received — our team is reviewing your order",
-  PROCESSING: "Being prepared",
-  SHIPPED: "Dispatched",
-  DELIVERED: "Delivered",
-  CANCELLED: "Cancelled",
-  REFUNDED: "Refunded",
-};
 
 export default async function OrderStatusPage({ searchParams }: { searchParams: Promise<{ number?: string; email?: string }> }) {
   const sp = await searchParams;

@@ -5,7 +5,7 @@ import { saveProduct } from "@/app/admin/actions";
 import { ActionForm } from "./ActionForm";
 
 type VariantRow = { id?: string; sku: string; size: string; colour: string; colourHex: string; stock: number };
-type ImageRow = { url: string; alt: string };
+type ImageRow = { url: string; alt: string; colour?: string }; // colour "" = shown for every colour
 
 export type ProductInitial = {
   id?: string;
@@ -44,6 +44,8 @@ export function ProductForm({ categories, initial }: { categories: { id: string;
   const [bulk, setBulk] = useState({ sizes: "", colour: "", hex: "#cccccc", stock: "10", prefix: "" });
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadColour, setUploadColour] = useState("");
+  const colourNames = [...new Set(variants.map((v) => v.colour.trim()).filter(Boolean))];
 
   const updateVariant = (i: number, patch: Partial<VariantRow>) => setVariants((vs) => vs.map((v, j) => (j === i ? { ...v, ...patch } : v)));
 
@@ -69,7 +71,7 @@ export function ProductForm({ categories, initial }: { categories: { id: string;
         setUploadError(data.error ?? "Upload failed");
         break;
       }
-      setImages((imgs) => [...imgs, { url: data.url, alt: "" }]);
+      setImages((imgs) => [...imgs, { url: data.url, alt: "", colour: uploadColour }]);
     }
     setUploading(false);
   };
@@ -160,12 +162,17 @@ export function ProductForm({ categories, initial }: { categories: { id: string;
       <section className="panel stack">
         <h3>Photos</h3>
         <p className="muted small">Upload JPG, PNG or WebP (max 5MB) or paste an image URL. Use only photos you own or are licensed to use. The first photo is the main image.</p>
+        <p className="muted small">
+          <strong>Photos per colour:</strong> set each photo&apos;s colour to match a variant colour above (e.g. a white skirt photo → &quot;White&quot;).
+          When a shopper picks that colour, its photos become the main images. Photos left on &quot;All colours&quot; show for every colour.
+        </p>
         <div className="row">
           {images.map((img, i) => (
             <div key={img.url + i} style={{ width: 120 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={img.url} alt="" style={{ width: 120, height: 150, objectFit: "cover", borderRadius: 4, background: "var(--surface-2)" }} />
               <input className="input small" placeholder="Alt text" value={img.alt} onChange={(e) => setImages((imgs) => imgs.map((x, j) => (j === i ? { ...x, alt: e.target.value } : x)))} style={{ minHeight: 30, marginTop: 4 }} aria-label="Image description" />
+              <ColourSelect value={img.colour ?? ""} colours={colourNames} onChange={(colour) => setImages((imgs) => imgs.map((x, j) => (j === i ? { ...x, colour } : x)))} label="Photo colour" />
               <div className="row" style={{ gap: 2 }}>
                 <button type="button" className="btn btn-sm btn-ghost" disabled={i === 0} onClick={() => setImages((imgs) => { const n = [...imgs]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; })} aria-label="Move left">←</button>
                 <button type="button" className="btn btn-sm btn-ghost" onClick={() => setImages((imgs) => imgs.filter((_, j) => j !== i))}>Remove</button>
@@ -174,11 +181,16 @@ export function ProductForm({ categories, initial }: { categories: { id: string;
           ))}
         </div>
         <div className="row">
+          {colourNames.length > 1 && (
+            <div style={{ width: 170 }}>
+              <ColourSelect value={uploadColour} colours={colourNames} onChange={setUploadColour} label="Colour for new photos" />
+            </div>
+          )}
           <label className="btn btn-sm btn-outline" style={{ cursor: "pointer" }}>
-            {uploading ? "Uploading…" : "Upload photos"}
+            {uploading ? "Uploading…" : uploadColour ? `Upload ${uploadColour} photos` : "Upload photos"}
             <input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={(e) => upload(e.target.files)} />
           </label>
-          <ImageUrlAdder onAdd={(url) => setImages((imgs) => [...imgs, { url, alt: "" }])} />
+          <ImageUrlAdder onAdd={(url) => setImages((imgs) => [...imgs, { url, alt: "", colour: uploadColour }])} />
         </div>
         {uploadError && <p className="field-error">{uploadError}</p>}
       </section>
@@ -193,6 +205,17 @@ export function ProductForm({ categories, initial }: { categories: { id: string;
         </div>
       </section>
     </ActionForm>
+  );
+}
+
+function ColourSelect({ value, colours, onChange, label }: { value: string; colours: string[]; onChange: (colour: string) => void; label: string }) {
+  // Keep a colour that was renamed/removed visible so it isn't silently changed; saving resets it to "All colours".
+  const options = value && !colours.includes(value) ? [...colours, value] : colours;
+  return (
+    <select className="select small" value={value} onChange={(e) => onChange(e.target.value)} aria-label={label} title={label} style={{ minHeight: 30, marginTop: 4, width: "100%" }}>
+      <option value="">All colours</option>
+      {options.map((c) => <option key={c} value={c}>{c}</option>)}
+    </select>
   );
 }
 

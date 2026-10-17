@@ -21,6 +21,8 @@ See [`docs/PLAN.md`](docs/PLAN.md) for the research, architecture, compliance ch
 ## 1. What's in the shop
 
 - **Storefront** — homepage, a menu with dropdowns (Boys, Girls, Men, Women, School & Stationery, Festival Special, Footwear, More, Sale), category pages with filters, search, product pages, wishlist, bag, guest checkout, order tracking and policy pages.
+- **Customer accounts (optional)** — customers can create an account (person icon in the header) to see their past orders, have their delivery address filled in at checkout and **save cards** for next time. Guest checkout still works without an account.
+- **Photos per colour** — tag each product photo with a colour (e.g. a white skirt photo → "White"). When a shopper picks White, the white photos become the main images, and the bag shows the white photo too.
 - **Shop by department** — picture cards on the homepage with a description, quick links and a button for each department. Change the picture, text and button in Admin → Site settings.
 - **Light and dark mode** — follows the visitor's device setting, with a toggle in the header that is remembered.
 - **Card payments on the checkout page** — customers type their card details into a secure Stripe card form on our own checkout page and pay without leaving the site (Apple Pay and Google Pay too, when switched on in Stripe). GBP for the UK and USD for the US.
@@ -72,6 +74,7 @@ Secrets stay on the server. They are never sent to the browser and `.env` is git
 | Task | Where |
 |---|---|
 | Add a product (name, description, prices, sizes/colours/stock, photos) | Admin → Products → **New product** |
+| Show the right photo for each colour (white skirt photo when "White" is picked) | Admin → Products → the product → **Photos**: set each photo's colour (see below) |
 | Change prices for many products at once, put items on sale, end a sale | Admin → **Pricing** |
 | Add or rename a category (e.g. "Onesies") | Admin → Categories — see [section 4](#4-menu-categories-and-pages) |
 | Make a discount code | Admin → Discount codes |
@@ -83,6 +86,14 @@ Secrets stay on the server. They are never sent to the browser and `.env` is git
 | Give staff limited access (e.g. customer service only) | Admin → Staff |
 
 **Where a product appears.** Each product has a **department** (Boys, Girls, Men, Women, Baby), a **category** (e.g. Hoodies & sweatshirts) and an optional **Collection / edit** word (e.g. `Halloween`, `Eid`). The menu pages pick products using these three fields, so a "Boys" + "Footwear" product shows under Boys → Shoes & trainers *and* Footwear → Boys' shoes.
+
+**Photos per colour.** In a product's **Photos** box, every photo has a colour dropdown listing the colours from *Sizes, colours & stock*:
+- Set the white skirt photos to **White** and the black ones to **Black**. When a shopper taps the white swatch, the white photos move to the front (the first is the big main image) and the black ones are hidden. The bag and checkout show the photo of the colour that was bought.
+- Leave photos that suit every colour (size chart, fabric close-up) on **All colours** — they always show, after the colour photos.
+- To upload several photos for one colour, pick the colour in the dropdown next to **Upload photos** first — the button changes to e.g. *Upload White photos* and every new photo is tagged White.
+- The product's first photo is still the one used in product grids, so put your best photo first.
+
+**Customer accounts.** Customers sign up at `/account/register` (or from the link on the checkout page) and sign in at `/account/login`. **My account** (`/account`) shows their orders (placed while signed in), their saved cards with a *Remove* button, and their delivery address, which is saved from their last order and filled in at checkout. Passwords are stored encrypted (bcrypt). Cards are saved **by Stripe**, never in our database — see [section 7](#7-set-up-payments-stripe).
 
 **How the chat reaches you.** When a customer taps *Talk to a person*:
 1. The conversation is flagged in **Admin → Customer chats**. Your reply appears live in the customer's chat window.
@@ -211,6 +222,8 @@ Options: `npm run import:products -- https://other-shop.example --max-images 2 -
    - **Edit details** goes back to step 1 and cancels the unpaid order.
 3. **Thank-you page:** the order is marked **Paid**, stock goes down and the bag is emptied. This happens as soon as Stripe confirms the payment — the thank-you page checks with Stripe directly, and Stripe's webhook confirms it again in the background.
 
+**Signed-in customers and saved cards.** When a customer with an account checks out, the payment is linked to their own Stripe customer record. The card form then lists the cards they saved before (tap one and pay — just the CVC if the bank asks) and shows a **"Save payment details for future purchases"** tick box under a new card. Saved cards are kept by Stripe and listed (with *Remove*) on the customer's **My account** page. This needs no extra setup beyond the Stripe keys below. We only ever see the card brand, last 4 digits and expiry date. Saving bank account details for Direct Debit is not supported — customers pay by card (or Apple Pay / Google Pay).
+
 **Card details never touch our server.** The card fields are Stripe's own secure fields embedded in our page (Stripe *Payment Element*), so card numbers go straight from the customer's browser to Stripe. That keeps Fashion Rockstar out of most PCI card-security paperwork (you'll fill in Stripe's short self-assessment, SAQ A). Never add your own card-number inputs.
 
 ### Setting it up
@@ -307,6 +320,9 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `checkout/page.tsx` | `/checkout` | Delivery details, then the card form — the customer pays on this page |
 | `checkout/success/page.tsx` | `/checkout/success` | Thank-you page; checks the payment with Stripe and marks the order paid |
 | `order-status/page.tsx` | `/order-status` | Customers track an order with its number and email |
+| `account/page.tsx` | `/account` | My account: orders, saved cards (remove), delivery address, sign out |
+| `account/login/page.tsx`, `account/register/page.tsx` | `/account/login`, `/account/register` | Customer sign in and sign up |
+| `account/actions.ts` | — | Sign up, sign in, sign out and removing a saved card |
 | `wishlist/page.tsx` | `/wishlist` | Saved items (stored in the customer's browser) |
 | `about`, `contact`, `faq`, `delivery-returns`, `size-guide`, `privacy`, `cookies`, `terms` | `/about` … | Information and policy pages — edit the text in each `page.tsx` |
 | `not-found.tsx` | — | The "page not found" page |
@@ -356,7 +372,8 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `HeaderClient.tsx` | Interactive header parts: mobile menu, search box, wishlist and bag counters |
 | `Listing.tsx` | A product list page: title, sub-page chips, filters (size, colour, price, stock), sorting, pagination |
 | `ProductCard.tsx` | One product tile in a grid: photo, name, price, colours, sale/new labels |
-| `ProductPurchase.tsx` | Size and colour picker with add to bag / wishlist on the product page |
+| `ProductPurchase.tsx` | Size and colour picker with add to bag / wishlist, and the photo gallery that switches to the chosen colour's photos |
+| `AccountForms.tsx` | Customer sign-in and sign-up forms |
 | `BagAndCheckout.tsx` | The bag and the two-step checkout (details, then card payment) |
 | `CardPayment.tsx` | The card form (Stripe Payment Element) styled to match the shop, with the Pay button and decline messages |
 | `StoreProvider.tsx` | Remembers the bag and wishlist in the browser |
@@ -392,7 +409,9 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `stripe.ts` | Stripe connection, the publishable key and the site address |
 | `chat.ts` | The Gemini chat assistant and the store information it's given |
 | `chat-store.ts` | Loading and saving chat conversations |
-| `auth.ts` / `session.ts` | Staff sign-in, roles and permissions |
+| `auth.ts` / `session.ts` | Staff sign-in, roles and permissions; signed sign-in cookies for staff and customers |
+| `customer.ts` | Customer accounts: who is signed in, their Stripe customer and saved cards |
+| `photos.ts` | Picks which product photos to show for the chosen colour |
 | `uploads.ts` | Where uploads are stored; image type checks |
 | `rate-limit.ts` | Stops too many requests from one visitor |
 | `currency-server.ts` | Reads the visitor's chosen currency |
@@ -404,7 +423,9 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 |---|---|
 | `pricing.test.ts` | Prices, sales, discounts, delivery |
 | `checkout-schema.test.ts` | Checkout validation |
-| `session.test.ts` | Admin login tokens |
+| `session.test.ts` | Admin and customer login tokens |
+| `photos.test.ts` | Photos per colour: which photos show for each colour |
+| `card-payment.integration.test.ts` | Card payments, guest and signed-in (saved cards, order on the account), with a fake Stripe (runs when `DATABASE_URL` is set) |
 | `navigation.test.ts` | The menu config is valid (real categories, no clashing addresses) |
 | `import-and-events.test.ts` | Product import sorting rules and event helpers |
 | `orders.integration.test.ts` | Orders and stock against a real database (runs when `DATABASE_URL` is set) |

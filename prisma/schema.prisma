@@ -73,6 +73,26 @@ model AdminUser {
   auditLogs    AuditLog[]
 }
 
+// Shop customers who chose to create an account (guest checkout still works without one).
+// Card details are never stored here: saved cards live in Stripe under stripeCustomerId.
+model Customer {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  name             String
+  passwordHash     String
+  stripeCustomerId String?   @unique
+  // Delivery address remembered from the last order, used to fill in checkout.
+  phone            String?
+  addressLine1     String?
+  addressLine2     String?
+  city             String?
+  region           String?
+  postcode         String?
+  orders           Order[]
+  lastLoginAt      DateTime?
+  createdAt        DateTime  @default(now())
+}
+
 model Category {
   id          String    @id @default(cuid())
   slug        String    @unique
@@ -121,6 +141,7 @@ model ProductImage {
   url       String
   alt       String
   position  Int     @default(0)
+  colour    String? // matches Variant.colour; null = shown for every colour
 
   @@index([productId])
 }
@@ -159,6 +180,8 @@ model Order {
   number          String      @unique
   status          OrderStatus @default(PENDING_PAYMENT)
   currency        Currency
+  customerId      String?
+  customer        Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
   email           String
   name            String
   phone           String?
@@ -186,6 +209,7 @@ model Order {
 
   @@index([status, createdAt])
   @@index([email])
+  @@index([customerId, createdAt])
 }
 
 model OrderItem {

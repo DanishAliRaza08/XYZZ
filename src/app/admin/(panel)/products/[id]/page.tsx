@@ -51,7 +51,7 @@ export default async function EditProduct({ params, searchParams }: { params: Pr
           featured: product.featured,
           bestseller: product.bestseller,
           variants: product.variants.map((v) => ({ id: v.id, sku: v.sku, size: v.size, colour: v.colour, colourHex: v.colourHex, stock: v.stock })),
-          images: product.images.map((i) => ({ url: i.url, alt: i.alt })),
+          images: product.images.map((i) => ({ url: i.url, alt: i.alt, colour: i.colour ?? "" })),
         }}
       />
     </div>

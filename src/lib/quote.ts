@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { photoForColour } from "./photos";
 import type { CurrencyCode } from "./money";
 import { applyDiscount, resolvePrice, shippingCost, type ShippingMethod, type ShippingRates } from "./pricing";
 
@@ -51,7 +52,7 @@ export async function buildQuote(opts: {
   }
   const variants = await prisma.variant.findMany({
     where: { id: { in: [...merged.keys()] } },
-    include: { product: { include: { images: { orderBy: { position: "asc" }, take: 1 } } } },
+    include: { product: { include: { images: { orderBy: { position: "asc" }, select: { url: true, colour: true } } } } },
   });
   const byId = new Map(variants.map((v) => [v.id, v]));
 
@@ -71,7 +72,8 @@ export async function buildQuote(opts: {
       productId: v.productId,
       productName: v.product.name,
       productSlug: v.product.slug,
-      image: v.product.images[0]?.url ?? null,
+      // The photo for the chosen colour (e.g. the white skirt), else the product's main photo.
+      image: photoForColour(v.product.images, v.colour)?.url ?? null,
       sku: v.sku,
       size: v.size,
       colour: v.colour,

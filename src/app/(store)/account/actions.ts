@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { FormState } from "@/app/admin/actions";
 import { prisma } from "@/lib/db";
-import { endCustomerSession, getCustomer, startCustomerSession } from "@/lib/customer";
+import { customerAccountsEnabled, endCustomerSession, getCustomer, startCustomerSession } from "@/lib/customer";
 import { isSitePath } from "@/lib/events";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getStripe } from "@/lib/stripe";
@@ -16,6 +16,8 @@ const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 /** Where to go after signing in — only pages on this site, never another domain. */
 const nextPath = (fd: FormData) => (isSitePath(str(fd, "next")) ? str(fd, "next") : "/account");
 
+const ACCOUNTS_OFF: FormState = { error: "Accounts aren't available yet. You can still check out as a guest." };
+
 const Register = z.object({
   name: z.string().trim().min(2, "Enter your full name").max(120),
   email: z.string().trim().toLowerCase().email("Enter a valid email address").max(160),
@@ -23,6 +25,7 @@ const Register = z.object({
 });
 
 export async function registerCustomer(_: FormState, fd: FormData): Promise<FormState> {
+  if (!customerAccountsEnabled()) return ACCOUNTS_OFF;
   if (!rateLimit(`register:${clientIp(await headers())}`, 5, 60 * 60_000)) return { error: "Too many sign-ups from this connection. Try again later." };
   const parsed = Register.safeParse({ name: str(fd, "name"), email: str(fd, "email"), password: String(fd.get("password") ?? "") });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -37,6 +40,7 @@ export async function registerCustomer(_: FormState, fd: FormData): Promise<Form
 let dummyHash: string | undefined;
 
 export async function signInCustomer(_: FormState, fd: FormData): Promise<FormState> {
+  if (!customerAccountsEnabled()) return ACCOUNTS_OFF;
   if (!rateLimit(`customer-login:${clientIp(await headers())}`, 10, 15 * 60_000)) return { error: "Too many attempts. Try again in 15 minutes." };
   const email = str(fd, "email").toLowerCase();
   const customer = await prisma.customer.findUnique({ where: { email } });

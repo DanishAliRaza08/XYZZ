@@ -55,7 +55,7 @@ The seed is safe to run again at any time: it adds anything missing and leaves y
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string |
 | `SITE_URL` | Public address, e.g. `https://www.yourdomain.co.uk`. Used for Stripe redirects and the sitemap |
-| `SESSION_SECRET` | Long random string that signs admin logins (`openssl rand -hex 32`) |
+| `SESSION_SECRET` | Long random string (at least 16 characters) that signs admin and customer sign-ins (`openssl rand -hex 32`). Without it the shop still works, but admin login and customer accounts don't |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Your owner account. Re-running the seed resets this password |
 | `STRIPE_SECRET_KEY` | From Stripe Dashboard → Developers → API keys (`sk_test_…` while testing). Keep it secret |
 | `STRIPE_PUBLISHABLE_KEY` | From the same page (`pk_test_…` while testing). Safe to show in the browser; it loads the card form |

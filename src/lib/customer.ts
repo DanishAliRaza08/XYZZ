@@ -7,8 +7,14 @@ import { getStripe } from "./stripe";
 // Shop customer accounts (optional — guest checkout still works). Passwords are bcrypt-hashed; card details
 // are saved by Stripe against the account's Stripe customer and never reach this server.
 
+/** Accounts need SESSION_SECRET (it signs the sign-in cookie). Without it the shop still works, guest-only. */
+export function customerAccountsEnabled() {
+  return (process.env.SESSION_SECRET?.length ?? 0) >= 16;
+}
+
 /** The signed-in shop customer, or null. */
 export async function getCustomer(): Promise<Customer | null> {
+  if (!customerAccountsEnabled()) return null;
   const payload = verifySessionToken((await cookies()).get(CUSTOMER_COOKIE)?.value);
   if (!payload || payload.role !== CUSTOMER_ROLE) return null;
   return prisma.customer.findUnique({ where: { id: payload.sub } });

@@ -126,7 +126,17 @@ export type CheckoutPrefill = Partial<Fields>;
  * Checkout in two steps on one page: 1) contact, delivery address and method, then "Continue to payment"
  * creates the order; 2) the card form (CardPayment) appears and the customer pays without leaving the page.
  */
-export function CheckoutView({ currency, publishableKey, prefill }: { currency: CurrencyCode; publishableKey: string | null; prefill?: CheckoutPrefill }) {
+export function CheckoutView({
+  currency,
+  publishableKey,
+  prefill,
+  setupProblems = [],
+}: {
+  currency: CurrencyCode;
+  publishableKey: string | null;
+  prefill?: CheckoutPrefill;
+  setupProblems?: string[];
+}) {
   const paymentsEnabled = Boolean(publishableKey);
   const [payment, setPayment] = useState<PaymentStep | null>(null);
   const [method, setMethod] = useState<"standard" | "express">("standard");
@@ -207,7 +217,16 @@ export function CheckoutView({ currency, publishableKey, prefill }: { currency: 
     <form className="two-col" onSubmit={submit} noValidate>
       <fieldset className="stack" disabled={Boolean(payment)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
         {!paymentsEnabled && (
-          <div className="alert alert-warning">Online payments are being set up. You can review your order, but card payments aren't available yet — please contact us via chat to order.</div>
+          <div className="alert alert-warning">
+            Online payments are being set up. You can review your order, but card payments aren&apos;t available yet — please contact us via chat to order.
+            {setupProblems.length > 0 && (
+              <div className="small" style={{ marginTop: 8 }}>
+                <strong>Setup note (only shown while running on your computer):</strong>
+                <ul style={{ margin: "4px 0", paddingLeft: 18 }}>{setupProblems.map((p) => <li key={p}>{p}</li>)}</ul>
+                Fix it in the <code>.env</code> file next to package.json, then stop <code>npm run dev</code> (Ctrl+C) and start it again.
+              </div>
+            )}
+          </div>
         )}
         <section className="panel stack">
           <h3>Contact</h3>

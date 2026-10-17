@@ -3,7 +3,7 @@ import Link from "next/link";
 import { CheckoutView } from "@/components/BagAndCheckout";
 import { getCurrency } from "@/lib/currency-server";
 import { getCustomer } from "@/lib/customer";
-import { getStripe, stripePublishableKey } from "@/lib/stripe";
+import { getStripe, stripePublishableKey, stripeSetupProblems } from "@/lib/stripe";
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } };
 
@@ -37,7 +37,13 @@ export default async function CheckoutPage() {
         </p>
       )}
       {/* Card payments need both Stripe keys; without them the page explains that payments aren't available yet. */}
-      <CheckoutView currency={currency} publishableKey={getStripe() ? stripePublishableKey() : null} prefill={prefill} />
+      <CheckoutView
+        currency={currency}
+        publishableKey={getStripe() ? stripePublishableKey() : null}
+        prefill={prefill}
+        // On your own computer (npm run dev) the checkout says exactly which Stripe setting is wrong; customers never see this.
+        setupProblems={process.env.NODE_ENV === "production" ? [] : stripeSetupProblems()}
+      />
     </div>
   );
 }

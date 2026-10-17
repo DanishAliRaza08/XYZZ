@@ -32,3 +32,14 @@ describe("uploads", () => {
     expect(SAFE_NAME.test("evil.svg")).toBe(false);
   });
 });
+
+describe("Stripe setup check", () => {
+  it("names missing or wrong keys without showing them", async () => {
+    const { stripeSetupProblems } = await import("@/lib/stripe");
+    expect(stripeSetupProblems({ STRIPE_SECRET_KEY: "sk_test_abc", STRIPE_PUBLISHABLE_KEY: "pk_test_abc" })).toEqual([]);
+    expect(stripeSetupProblems({ STRIPE_SECRET_KEY: "sk_test_abc", STRIPE_PUBLISHABLE_KEY: "" })).toEqual(["STRIPE_PUBLISHABLE_KEY is empty or missing."]);
+    expect(stripeSetupProblems({ STRIPE_SECRET_KEY: "pk_test_abc", STRIPE_PUBLISHABLE_KEY: "pk_test_abc" })[0]).toMatch(/STRIPE_SECRET_KEY should start with sk_test_/);
+    expect(stripeSetupProblems({ STRIPE_SECRET_KEY: "sk_live_abc", STRIPE_PUBLISHABLE_KEY: "pk_test_abc" })[0]).toMatch(/test key and the other a live key/);
+    expect(stripeSetupProblems({}).join(" ")).not.toMatch(/sk_test_abc/);
+  });
+});

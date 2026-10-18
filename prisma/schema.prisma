@@ -321,3 +321,26 @@ model SeasonalEvent {
 
   @@index([active, startsAt])
 }
+
+enum BlogStatus {
+  DRAFT
+  PUBLISHED
+}
+
+// Blog posts written in Admin → Blog and shown at /blog. Content is simple formatted text
+// (headings, bold, links, lists, photos — see src/lib/blog-format.ts), never raw HTML.
+model BlogPost {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  title       String     @db.VarChar(200)
+  excerpt     String?    @db.Text // short summary for the blog list and search engines
+  content     String     @db.MediumText
+  coverImage  String?    @db.VarChar(512)
+  author      String?    @db.VarChar(120)
+  status      BlogStatus @default(DRAFT)
+  publishedAt DateTime? // set the first time the post is published; shown as the post's date
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([status, publishedAt])
+}

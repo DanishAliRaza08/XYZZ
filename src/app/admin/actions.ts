@@ -60,6 +60,53 @@ export async function logout() {
   redirect("/admin/login");
 }
 
+// ---------- Blog (Admin → Blog) ----------
+export async function saveBlogPost(_: FormState, fd: FormData): Promise<FormState> {
+  const admin = await requireAdminPage("settings");
+  const id = optStr(fd, "id");
+  const title = str(fd, "title").slice(0, 200);
+  if (title.length < 3) return { error: "Give the post a title." };
+  const content = String(fd.get("content") ?? "").trim();
+  if (content.length < 20) return { error: "Write the post (at least a sentence or two) before saving." };
+  if (content.length > 200_000) return { error: "This post is too long — split it into two posts." };
+  const coverImage = optStr(fd, "coverImage");
+  if (coverImage && !isSafeImage(coverImage)) return { error: "The cover photo must be uploaded or an https:// address." };
+  const status = str(fd, "status") === "PUBLISHED" ? "PUBLISHED" : "DRAFT";
+
+  let slug = slugify(str(fd, "slug") || title);
+  if (!slug) return { error: "Could not make a web address from the title — enter one in “Web address”." };
+  const clash = await prisma.blogPost.findUnique({ where: { slug } });
+  if (clash && clash.id !== id) slug = `${slug}-${Date.now().toString(36).slice(-4)}`;
+
+  const before = id ? await prisma.blogPost.findUnique({ where: { id } }) : null;
+  if (id && !before) return { error: "This post no longer exists." };
+  const data = {
+    title,
+    slug,
+    content,
+    coverImage,
+    excerpt: optStr(fd, "excerpt")?.slice(0, 400) ?? null,
+    author: optStr(fd, "author")?.slice(0, 120) ?? null,
+    status: status as "DRAFT" | "PUBLISHED",
+    // The post's date is when it was first published; editing later keeps it.
+    publishedAt: status === "PUBLISHED" ? (before?.publishedAt ?? new Date()) : (before?.publishedAt ?? null),
+  };
+  const post = before ? await prisma.blogPost.update({ where: { id: before.id }, data }) : await prisma.blogPost.create({ data });
+  await audit(admin.id, before ? "update" : "create", "BlogPost", post.id, `${title} · ${status}`);
+  refreshStore();
+  if (!before) redirect(`/admin/blog/${post.id}?saved=1`);
+  return { ok: status === "PUBLISHED" ? "Saved and published." : "Saved as a draft (not visible in the shop)." };
+}
+
+export async function deleteBlogPost(fd: FormData) {
+  const admin = await requireAdminPage("settings");
+  const id = str(fd, "id");
+  const post = await prisma.blogPost.delete({ where: { id } }).catch(() => null);
+  if (post) await audit(admin.id, "delete", "BlogPost", id, post.title);
+  refreshStore();
+  redirect("/admin/blog");
+}
+
 // ---------- Import products (Admin → Import products) ----------
 export async function startProductImport(_: FormState, fd: FormData): Promise<FormState> {
   const admin = await requireAdminPage("products");

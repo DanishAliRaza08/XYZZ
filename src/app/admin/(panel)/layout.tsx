@@ -25,6 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/orders", label: "Orders", perm: "orders", badge: attentionOrders },
     { href: "/admin/chats", label: "Customer chats", perm: "chats", badge: waitingChats },
     { href: "/admin/events", label: "Seasonal events", perm: "settings" },
+    { href: "/admin/blog", label: "Blog", perm: "settings" },
     { href: "/admin/settings", label: "Site settings", perm: "settings" },
     { href: "/admin/staff", label: "Staff", perm: "staff" },
     { href: "/admin/account", label: "My account", perm: "dashboard" },

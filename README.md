@@ -22,6 +22,7 @@ See [`docs/PLAN.md`](docs/PLAN.md) for the research, architecture, compliance ch
 
 - **Storefront** — homepage, a menu with dropdowns (Boys, Girls, Men, Women, School & Stationery, Festival Special, Footwear, More, Sale), category pages with filters, search, product pages, wishlist, bag, guest checkout, order tracking and policy pages.
 - **Customer accounts (optional)** — customers can create an account (person icon in the header) to see their past orders, have their delivery address filled in at checkout and **save cards** for next time. Guest checkout still works without an account.
+- **Blog** — write, edit and publish posts in Admin → Blog (formatting toolbar, cover photo, photos inside posts, live preview). Posts appear at `/blog`, in the menu, the footer and the sitemap.
 - **Photos per colour** — tag each product photo with a colour (e.g. a white skirt photo → "White"). When a shopper picks White, the white photos become the main images, and the bag shows the white photo too.
 - **Shop by department** — picture cards on the homepage with a description, quick links and a button for each department. Change the picture, text and button in Admin → Site settings.
 - **Light and dark mode** — follows the visitor's device setting, with a toggle in the header that is remembered.
@@ -74,6 +75,7 @@ Secrets stay on the server. They are never sent to the browser and `.env` is git
 | Task | Where |
 |---|---|
 | Add a product (name, description, prices, sizes/colours/stock, photos) | Admin → Products → **New product** |
+| Write, edit, publish or delete a blog post | Admin → **Blog** → New post / Edit |
 | Copy all products from another Shopify shop (e.g. a supplier) | Admin → **Import products** — see [section 6](#6-import-products-from-a-shopify-store) |
 | Show the right photo for each colour (white skirt photo when "White" is picked) | Admin → Products → the product → **Photos**: set each photo's colour (see below) |
 | Change prices for many products at once, put items on sale, end a sale | Admin → **Pricing** |
@@ -343,6 +345,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `bag/page.tsx` | `/bag` | Shopping bag |
 | `checkout/page.tsx` | `/checkout` | Delivery details, then the card form — the customer pays on this page |
 | `checkout/success/page.tsx` | `/checkout/success` | Thank-you page; checks the payment with Stripe and marks the order paid |
+| `blog/page.tsx`, `blog/[slug]/page.tsx` | `/blog`, `/blog/…` | The blog list and each post |
 | `order-status/page.tsx` | `/order-status` | Customers track an order with its number and email |
 | `account/page.tsx` | `/account` | My account: orders, saved cards (remove), delivery address, sign out |
 | `account/login/page.tsx`, `account/register/page.tsx` | `/account/login`, `/account/register` | Customer sign in and sign up |
@@ -412,6 +415,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `InfoPage.tsx` | Layout for the information/policy pages |
 | `WishlistView.tsx`, `ProductArtClient.tsx`, `Icons.tsx` | Wishlist list, photo placeholder, icons |
 | `admin/ProductForm.tsx` | The product editor (details, prices, variants, photos) |
+| `admin/BlogForm.tsx` | The blog post editor: toolbar, photo uploads, preview |
 | `admin/EventForm.tsx` | The seasonal event editor |
 | `admin/DepartmentTileFields.tsx` | Picture/text/button fields for the homepage cards in Site settings |
 | `admin/ActionForm.tsx` | Admin form wrapper that shows "Saved" / error messages |
@@ -436,6 +440,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `chat.ts` | The Gemini chat assistant and the store information it's given |
 | `chat-store.ts` | Loading and saving chat conversations |
 | `auth.ts` / `session.ts` | Staff sign-in, roles and permissions; signed sign-in cookies for staff and customers |
+| `blog.ts` / `blog-format.tsx` | Published blog posts (cached), and turning post text into headings, lists, links and photos safely |
 | `shopify-import.ts` | Reads a Shopify shop's product feed and maps its products, prices, sizes and photos to ours |
 | `import-job.ts` | Runs Admin → Import products in the background and reports progress |
 | `customer.ts` | Customer accounts: who is signed in, their Stripe customer and saved cards |
@@ -454,6 +459,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `checkout-schema.test.ts` | Checkout validation |
 | `session.test.ts` | Admin and customer login tokens |
 | `product-import.integration.test.ts` | Admin → Import products with a fake shop: new products, photos, re-runs, bad addresses |
+| `blog-format.test.tsx` | Blog formatting, and that posts can't inject scripts |
 | `catalog-cache.test.ts` | Catalogue search and filters, and the memory cache |
 | `photos.test.ts` | Photos per colour: which photos show for each colour |
 | `card-payment.integration.test.ts` | Card payments, guest and signed-in (saved cards, order on the account), with a fake Stripe (runs when `DATABASE_URL` is set) |

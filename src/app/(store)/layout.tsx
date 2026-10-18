@@ -91,6 +91,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
                 )}
               </li>
             ))}
+            <li><Link href="/blog" className="nav-link">Blog</Link></li>
           </ul>
         </nav>
       </header>
@@ -141,6 +142,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
               <h4>Company</h4>
               <ul>
                 <li><Link href="/about">About us</Link></li>
+                <li><Link href="/blog">Blog</Link></li>
                 <li><Link href="/privacy">Privacy policy</Link></li>
                 <li><Link href="/cookies">Cookie policy</Link></li>
                 <li><Link href="/terms">Terms & conditions</Link></li>

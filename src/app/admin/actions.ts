@@ -8,6 +8,8 @@ import { z } from "zod";
 import type { AdminRole, Department, EventTheme, OrderStatus, ProductStatus } from "@prisma/client";
 import { audit, requireAdminPage } from "@/lib/auth";
 import { invalidateStoreCache } from "@/lib/cache";
+import { startImport } from "@/lib/import-job";
+import { normaliseSource } from "@/lib/shopify-import";
 import { slugify } from "@/lib/catalog";
 import { prisma } from "@/lib/db";
 import { HEX_COLOUR, isSafeImage, isSitePath, parseBanners } from "@/lib/events";
@@ -56,6 +58,30 @@ export async function login(_: FormState, fd: FormData): Promise<FormState> {
 export async function logout() {
   (await cookies()).delete(SESSION_COOKIE);
   redirect("/admin/login");
+}
+
+// ---------- Import products (Admin → Import products) ----------
+export async function startProductImport(_: FormState, fd: FormData): Promise<FormState> {
+  const admin = await requireAdminPage("products");
+  let source: string;
+  try {
+    source = normaliseSource(str(fd, "source"));
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Enter a website address." };
+  }
+  const num = (k: string, min: number, max: number, fallback: number) => {
+    const n = Number(str(fd, k));
+    return str(fd, k) && Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : fallback;
+  };
+  const status: ProductStatus = str(fd, "status") === "DRAFT" ? "DRAFT" : "PUBLISHED";
+  const error = startImport(
+    { source, status, maxImages: num("maxImages", 0, 10, 4), defaultStock: num("defaultStock", 0, 10000, 10), limit: num("limit", 1, 10000, Infinity) },
+    admin.id,
+  );
+  if (error) return { error };
+  await audit(admin.id, "start-import", "Product", undefined, `${source} · ${status}`);
+  revalidatePath("/admin/import");
+  return { ok: "Import started — progress is shown below." };
 }
 
 // ---------- Products ----------

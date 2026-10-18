@@ -7,7 +7,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import bcrypt from "bcryptjs";
 import { PrismaClient, type ProductStatus } from "@prisma/client";
-import type { ImportedProduct } from "../scripts/import-shopify";
+import type { ImportedProduct } from "../src/lib/shopify-import";
 import { CATEGORIES, CATEGORY_NAMES } from "../src/lib/categories";
 
 const prisma = new PrismaClient();

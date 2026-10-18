@@ -74,6 +74,7 @@ Secrets stay on the server. They are never sent to the browser and `.env` is git
 | Task | Where |
 |---|---|
 | Add a product (name, description, prices, sizes/colours/stock, photos) | Admin → Products → **New product** |
+| Copy all products from another Shopify shop (e.g. a supplier) | Admin → **Import products** — see [section 6](#6-import-products-from-a-shopify-store) |
 | Show the right photo for each colour (white skirt photo when "White" is picked) | Admin → Products → the product → **Photos**: set each photo's colour (see below) |
 | Change prices for many products at once, put items on sale, end a sale | Admin → **Pricing** |
 | Add or rename a category (e.g. "Onesies") | Admin → Categories — see [section 4](#4-menu-categories-and-pages) |
@@ -197,6 +198,12 @@ If two events overlap, the one that started most recently is shown. Switch an ev
 ---
 
 ## 6. Import products from a Shopify store
+
+### From the admin (easiest)
+
+**Admin → Import products**: paste the shop's address (e.g. `https://gumandberries.co.uk`), choose Published or Draft, how many photos per product and the stock per size, then press **Start import**. The import runs on the server and the page shows its progress; you can leave the page and come back. Photos are saved with your other uploads (`UPLOAD_DIR`). Products already in the shop are left as they are (including your edits), so running it again later only adds new products. Only Shopify shops have the public product feed this needs.
+
+### From your computer
 
 `npm run import:products` copies a catalogue from a Shopify store's public product feed. By default it uses **https://gumandberries.co.uk**.
 - Photos are saved in **`public/images/products/<product>/`** (up to 4 per product, resized to 1000px wide).
@@ -380,6 +387,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `uploads/[name]/route.ts` | Serves uploaded photos at `/uploads/…` |
 | `layout.tsx` | The outer HTML page, fonts and light/dark mode script |
 | `globals.css` | All styling: colours (design tokens), layout, components, event themes |
+| `icon.svg`, `apple-icon.png`, `favicon.ico` | The FR logo shown in browser tabs and on phone home screens — replace these files to change it |
 | `sitemap.ts` / `robots.ts` | `/sitemap.xml` and `/robots.txt` for search engines |
 
 ### Shared building blocks — `src/components/`
@@ -428,6 +436,8 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `chat.ts` | The Gemini chat assistant and the store information it's given |
 | `chat-store.ts` | Loading and saving chat conversations |
 | `auth.ts` / `session.ts` | Staff sign-in, roles and permissions; signed sign-in cookies for staff and customers |
+| `shopify-import.ts` | Reads a Shopify shop's product feed and maps its products, prices, sizes and photos to ours |
+| `import-job.ts` | Runs Admin → Import products in the background and reports progress |
 | `customer.ts` | Customer accounts: who is signed in, their Stripe customer and saved cards |
 | `photos.ts` | Picks which product photos to show for the chosen colour |
 | `uploads.ts` | Where uploads are stored; image type checks |
@@ -443,6 +453,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `pricing.test.ts` | Prices, sales, discounts, delivery |
 | `checkout-schema.test.ts` | Checkout validation |
 | `session.test.ts` | Admin and customer login tokens |
+| `product-import.integration.test.ts` | Admin → Import products with a fake shop: new products, photos, re-runs, bad addresses |
 | `catalog-cache.test.ts` | Catalogue search and filters, and the memory cache |
 | `photos.test.ts` | Photos per colour: which photos show for each colour |
 | `card-payment.integration.test.ts` | Card payments, guest and signed-in (saved cards, order on the account), with a fake Stripe (runs when `DATABASE_URL` is set) |

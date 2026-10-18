@@ -261,7 +261,7 @@ Refunds are issued from the Stripe dashboard. A full refund switches the order t
 
 ## 8. Put it live on the internet
 
-### On Hostinger (Business / "Unlimited" web hosting with Node.js web apps)
+### On Hostinger (Business or Cloud plan — these include Node.js web apps; Premium and Unlimited do not)
 
 1. **Database:** hPanel → **Databases → MySQL Databases** → create a database, a user and a password. Your `DATABASE_URL` is `mysql://USER:PASSWORD@localhost:3306/DATABASE_NAME` (hPanel shows the exact host if it isn't `localhost`).
 2. **App:** hPanel → **Websites → Add website → Node.js web app** → connect GitHub, repository `XYZZ`, branch `main`.

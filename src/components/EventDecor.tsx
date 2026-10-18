@@ -5,12 +5,15 @@ const SYMBOLS: Partial<Record<EventTheme, string[]>> = {
   CHRISTMAS: ["❄", "❅", "❆", "❄"],
 };
 
-/** A light, decorative layer of falling bats or snowflakes. Hidden for visitors who prefer reduced motion. */
+/**
+ * A light, decorative layer of falling bats or snowflakes. Hidden for visitors who prefer reduced motion.
+ * 32 are rendered; CSS shows 14 on phones and laptops, and more on wide screens so they don't look sparse.
+ */
 export function EventDecor({ theme }: { theme: EventTheme }) {
   const symbols = SYMBOLS[theme];
   if (!symbols) return null;
   // Deterministic positions so server and client render the same markup.
-  const flakes = Array.from({ length: 14 }, (_, i) => ({
+  const flakes = Array.from({ length: 32 }, (_, i) => ({
     symbol: symbols[i % symbols.length],
     left: (i * 37 + 11) % 100,
     size: 14 + ((i * 7) % 16),
@@ -27,8 +30,6 @@ export function EventDecor({ theme }: { theme: EventTheme }) {
             fontSize: f.size,
             animationDuration: `${f.duration}s`,
             animationDelay: `${f.delay}s`,
-            color: theme === "CHRISTMAS" ? "#ffffff" : undefined,
-            textShadow: theme === "CHRISTMAS" ? "0 0 4px rgba(80,110,140,0.6)" : undefined,
           }}
         >
           {f.symbol}

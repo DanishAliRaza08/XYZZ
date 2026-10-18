@@ -159,7 +159,7 @@ p { margin: 0 0 1em; }
 .header-actions { display: flex; justify-content: flex-end; align-items: center; gap: 2px; }
 .header-left { display: flex; align-items: center; gap: 4px; }
 .main-nav { position: relative; border-top: 1px solid var(--border); }
-.main-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; column-gap: clamp(14px, 2.4vw, 34px); }
+.main-nav ul { list-style: none; margin: 0 auto; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; column-gap: clamp(14px, 2.4vw, 34px); }
 .main-nav li { position: static; }
 .main-nav a.nav-link { display: block; padding: 13px 0; font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600; border-bottom: 2px solid transparent; }
 .main-nav li:hover > a.nav-link, .main-nav li:focus-within > a.nav-link { border-bottom-color: currentColor; text-decoration: none; }
@@ -244,7 +244,7 @@ p { margin: 0 0 1em; }
 .sub-links .chip:hover { text-decoration: none; border-color: var(--text); }
 .chip.active { border-color: var(--text); background: var(--text); color: var(--bg); }
 
-.section-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 26px; flex-wrap: wrap; }
+.section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 26px; flex-wrap: wrap; }
 .section-head h2 { margin: 0; }
 
 /* Product grid & cards */
@@ -460,7 +460,17 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 .event-banner:hover { text-decoration: none; }
 
 .event-decor { position: fixed; inset: 0; pointer-events: none; z-index: 30; overflow: hidden; }
-.event-decor span { position: absolute; top: -40px; opacity: 0.75; animation: event-fall linear infinite; }
+.event-decor span { position: absolute; top: -40px; opacity: 0.75; animation: event-fall linear infinite; color: var(--event-decor-color, inherit); text-shadow: var(--event-decor-shadow, none); }
+/* More decorations on wider screens, so a big monitor isn't left almost empty. */
+.event-decor span:nth-child(n + 15) { display: none; }
+@media (min-width: 1440px) { .event-decor span:nth-child(n + 15):nth-child(-n + 22) { display: block; } }
+@media (min-width: 1900px) { .event-decor span:nth-child(n + 15) { display: block; } }
+/* Snowflakes: icy blue on the light Christmas background (white would be invisible), white on the dark one. */
+.event-scope[data-event="christmas"] { --event-decor-color: #7fa3c4; --event-decor-shadow: 0 0 3px rgba(255, 255, 255, 0.9); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .event-scope[data-event="christmas"] { --event-decor-color: #ffffff; --event-decor-shadow: 0 0 4px rgba(120, 160, 200, 0.7); }
+}
+:root[data-theme="dark"] .event-scope[data-event="christmas"] { --event-decor-color: #ffffff; --event-decor-shadow: 0 0 4px rgba(120, 160, 200, 0.7); }
 @keyframes event-fall {
   0% { transform: translate3d(0, -40px, 0) rotate(0deg); }
   50% { transform: translate3d(28px, 50vh, 0) rotate(160deg); }

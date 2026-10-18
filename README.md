@@ -198,7 +198,7 @@ If two events overlap, the one that started most recently is shown. Switch an ev
 
 ## 6. Import products from a Shopify store
 
-`npm run import:products` copies a catalogue from a Shopify store's public product feed. By default it uses **https://a2z4kids.co.uk**.
+`npm run import:products` copies a catalogue from a Shopify store's public product feed. By default it uses **https://gumandberries.co.uk**.
 - Photos are saved in **`public/images/products/<product>/`** (up to 4 per product, resized to 1000px wide).
 - Product details are saved in **`prisma/data/products.json`**. Then run `npm run db:seed` to add them to the shop.
 - Re-running the seed skips products that already exist, so it's safe to run again after an import.

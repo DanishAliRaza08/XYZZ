@@ -2,7 +2,7 @@
 //   • downloads product photos into public/images/products/<product>/
 //   • writes prisma/data/products.json, which `npm run db:seed` loads into the database
 //
-// Usage:  npm run import:products                       (defaults to https://a2z4kids.co.uk)
+// Usage:  npm run import:products                       (defaults to https://gumandberries.co.uk)
 //         npm run import:products -- https://shop.example --max-images 4 --limit 200
 //
 // Only import products and photos you have permission to sell and reuse.
@@ -50,7 +50,9 @@ const flag = (name: string) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : undefined;
 };
-const SOURCE = (args.find((a) => /^https?:\/\//.test(a)) ?? "https://a2z4kids.co.uk").replace(/\/+$/, "");
+const SOURCE = (args.find((a) => /^https?:\/\//.test(a)) ?? "https://gumandberries.co.uk").replace(/\/+$/, "");
+// Prefix for SKUs the source store left blank, from its name (gumandberries.co.uk → "GUM").
+const SKU_PREFIX = new URL(SOURCE).hostname.replace(/^www\./, "").slice(0, 3).toUpperCase();
 const MAX_IMAGES = Number(flag("max-images") ?? 4);
 const LIMIT = Number(flag("limit") ?? Infinity);
 const IMAGE_WIDTH = Number(flag("image-width") ?? 1000);
@@ -223,7 +225,7 @@ async function main() {
       const colour = (opt(v, colourIdx) ?? "As pictured").slice(0, 40);
       if (combos.has(`${size}|${colour}`)) continue;
       combos.add(`${size}|${colour}`);
-      let sku = (v.sku ?? "").trim().slice(0, 60) || `A2Z-${p.id}-${vi + 1}`;
+      let sku = (v.sku ?? "").trim().slice(0, 60) || `${SKU_PREFIX}-${p.id}-${vi + 1}`;
       while (usedSkus.has(sku)) sku = `${sku}-${vi + 1}`;
       usedSkus.add(sku);
       variants.push({ sku, size, colour, colourHex: colourHex(colour), stock: v.available === false ? 0 : DEFAULT_STOCK });

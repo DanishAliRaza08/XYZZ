@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { AdminRole, Department, EventTheme, OrderStatus, ProductStatus } from "@prisma/client";
 import { audit, requireAdminPage } from "@/lib/auth";
+import { invalidateStoreCache } from "@/lib/cache";
 import { slugify } from "@/lib/catalog";
 import { prisma } from "@/lib/db";
 import { HEX_COLOUR, isSafeImage, isSitePath, parseBanners } from "@/lib/events";
@@ -17,6 +18,12 @@ import { SECTIONS } from "@/lib/navigation";
 import { getSettings, saveSettings, type DepartmentTileOverride } from "@/lib/settings";
 
 export type FormState = { error?: string; ok?: string } | undefined;
+
+/** After any change the shop shows (products, prices, categories, settings, events): drop cached data and pages. */
+function refreshStore() {
+  invalidateStoreCache();
+  revalidatePath("/", "layout");
+}
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 const optStr = (fd: FormData, k: string) => str(fd, k) || null;
@@ -158,7 +165,7 @@ export async function saveProduct(_: FormState, fd: FormData): Promise<FormState
     return { error: "Could not save the product. Check for duplicate SKUs or size/colour combinations." };
   }
   await audit(admin.id, id ? "update" : "create", "Product", productId, `${name} · ${data.status} · £${(priceGBP / 100).toFixed(2)}`);
-  revalidatePath("/", "layout");
+  refreshStore();
   if (!id) redirect(`/admin/products/${productId}?saved=1`);
   return { ok: "Product saved." };
 }
@@ -170,7 +177,7 @@ export async function setProductStatus(fd: FormData) {
   if (!["DRAFT", "PUBLISHED", "ARCHIVED"].includes(status)) return;
   await prisma.product.update({ where: { id }, data: { status } });
   await audit(admin.id, `status:${status}`, "Product", id);
-  revalidatePath("/", "layout");
+  refreshStore();
 }
 
 export async function deleteProduct(fd: FormData) {
@@ -185,7 +192,7 @@ export async function deleteProduct(fd: FormData) {
     await prisma.product.delete({ where: { id } });
     await audit(admin.id, "delete", "Product", id);
   }
-  revalidatePath("/", "layout");
+  refreshStore();
   redirect("/admin/products");
 }
 
@@ -214,7 +221,7 @@ export async function savePricing(_: FormState, fd: FormData): Promise<FormState
   });
   await prisma.$transaction(changed.map(({ id, ...data }) => prisma.product.update({ where: { id }, data })));
   if (changed.length) await audit(admin.id, "bulk-pricing", "Product", undefined, `${changed.length} products updated`);
-  revalidatePath("/", "layout");
+  refreshStore();
   return { ok: changed.length ? `Updated prices for ${changed.length} product${changed.length === 1 ? "" : "s"}.` : "No changes to save." };
 }
 
@@ -248,7 +255,7 @@ export async function adjustPrices(_: FormState, fd: FormData): Promise<FormStat
   });
   await prisma.$transaction(ops);
   await audit(admin.id, `bulk-adjust:${mode}`, "Product", undefined, `${pct}% on ${products.length} products${department ? ` (${department})` : ""}`);
-  revalidatePath("/", "layout");
+  refreshStore();
   return { ok: `${mode === "clear-sale" ? "Removed sale prices from" : "Adjusted"} ${products.length} products.` };
 }
 
@@ -266,7 +273,7 @@ export async function saveCategory(_: FormState, fd: FormData): Promise<FormStat
   } catch {
     return { error: "A category with that URL already exists." };
   }
-  revalidatePath("/", "layout");
+  refreshStore();
   return { ok: "Category saved." };
 }
 
@@ -278,7 +285,7 @@ export async function deleteCategory(fd: FormData) {
     await prisma.category.delete({ where: { id } });
     await audit(admin.id, "delete", "Category", id);
   }
-  revalidatePath("/", "layout");
+  refreshStore();
 }
 
 // ---------- Orders ----------
@@ -404,7 +411,7 @@ export async function updateSettings(_: FormState, fd: FormData): Promise<FormSt
     },
   });
   await audit(admin.id, "update", "Settings");
-  revalidatePath("/", "layout");
+  refreshStore();
   return { ok: "Settings saved." };
 }
 
@@ -473,7 +480,7 @@ export async function saveEvent(_: FormState, fd: FormData): Promise<FormState> 
   };
   const saved = id ? await prisma.seasonalEvent.update({ where: { id }, data }) : await prisma.seasonalEvent.create({ data });
   await audit(admin.id, id ? "update" : "create", "SeasonalEvent", saved.id, `${name} · ${data.active ? "on" : "off"}`);
-  revalidatePath("/", "layout");
+  refreshStore();
   if (!id) redirect(`/admin/events/${saved.id}?saved=1`);
   return { ok: "Event saved." };
 }
@@ -484,7 +491,7 @@ export async function toggleEvent(fd: FormData) {
   const e = await prisma.seasonalEvent.findUniqueOrThrow({ where: { id } });
   await prisma.seasonalEvent.update({ where: { id }, data: { active: !e.active } });
   await audit(admin.id, e.active ? "deactivate" : "activate", "SeasonalEvent", id, e.name);
-  revalidatePath("/", "layout");
+  refreshStore();
 }
 
 export async function deleteEvent(fd: FormData) {
@@ -492,7 +499,7 @@ export async function deleteEvent(fd: FormData) {
   const id = str(fd, "id");
   await prisma.seasonalEvent.delete({ where: { id } });
   await audit(admin.id, "delete", "SeasonalEvent", id);
-  revalidatePath("/", "layout");
+  refreshStore();
   redirect("/admin/events");
 }
 

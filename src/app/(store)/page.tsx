@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/ProductCard";
-import { listProducts } from "@/lib/catalog";
+import { getCatalog, listProducts } from "@/lib/catalog";
 import { getCurrency } from "@/lib/currency-server";
-import { prisma } from "@/lib/db";
 import { getActiveEvent, isSafeImage, parseBanners, themeSlug } from "@/lib/events";
 import { formatMoney } from "@/lib/money";
 import { homeTiles } from "@/lib/navigation";
 import { getSettings } from "@/lib/settings";
+import { ShopImage } from "@/components/ShopImage";
 
 const TILE_TINTS = ["#c9a7ad", "#b9c4cf", "#c7c1a6", "#d8c5b5", "#a9b8a8"];
 
@@ -15,12 +15,8 @@ export default async function HomePage() {
   const [featured, bestsellers, collections] = await Promise.all([
     listProducts({ currency, sort: "recommended" }),
     listProducts({ currency, collection: "bestsellers" }),
-    prisma.product.findMany({
-      where: { status: "PUBLISHED", collection: { not: null } },
-      select: { collection: true },
-      distinct: ["collection"],
-      take: 3,
-    }),
+    // The first three collection names among published products (newest first), from the cached catalogue.
+    getCatalog().then(({ products }) => [...new Set(products.map((p) => p.collection).filter((c): c is string => Boolean(c)))].slice(0, 3).map((collection) => ({ collection }))),
   ]);
   const featuredItems = featured.items.filter((p) => p.featured).slice(0, 8);
   const shownFeatured = featuredItems.length ? featuredItems : featured.items.slice(0, 8);
@@ -54,8 +50,7 @@ export default async function HomePage() {
       <section className={`hero${hero.image ? " has-image" : ""}`}>
         {hero.image ? (
           <div className="hero-media">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={hero.image} alt="" />
+            <ShopImage src={hero.image} alt="" sizes="100vw" priority />
           </div>
         ) : (
           <div className="hero-art" data-event={event ? themeSlug(event.theme) : undefined} aria-hidden />
@@ -90,8 +85,7 @@ export default async function HomePage() {
                 {banners.map((b, i) => {
                   const tile = (
                     <>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={b.image} alt={b.title} loading={i < 3 ? "eager" : "lazy"} />
+                      <ShopImage src={b.image} alt={b.title} sizes="(max-width: 600px) 100vw, 33vw" />
                       {b.title && <span>{b.title}</span>}
                     </>
                   );
@@ -133,11 +127,10 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="tiles">
-            {homeTiles(settings.departmentTiles).map((t, i) => (
+            {homeTiles(settings.departmentTiles).map((t) => (
               <article key={t.slug} className="dept-tile">
                 <Link href={t.href} className="dept-tile-media" tabIndex={-1} aria-hidden>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={t.image} alt="" loading={i < 4 ? "eager" : "lazy"} />
+                  <ShopImage src={t.image} alt="" sizes="(max-width: 480px) 100vw, (max-width: 900px) 50vw, 25vw" />
                 </Link>
                 <div className="dept-tile-body">
                   <h3><Link href={t.href}>{t.title}</Link></h3>

@@ -22,7 +22,7 @@ Benchmarked: Monsoon (children's occasionwear), Boden, Joules, Next and Frugi. W
 ```
 Browser ──► Next.js app (storefront + admin + API routes)
               │  server-side: pricing, stock, discounts, auth, validation
-              ├──► PostgreSQL (Prisma)  products, variants, orders, chats, settings, audit log
+              ├──► MySQL (Prisma)  products, variants, orders, chats, settings, audit log
               ├──► Stripe Checkout       card / Apple Pay / Google Pay; webhooks back to /api/webhooks/stripe
               ├──► Gemini API            chat assistant grounded in live catalogue + policies
               └──► WhatsApp (wa.me link) customer → owner's number with chat reference

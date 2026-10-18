@@ -1,4 +1,5 @@
 import type { Department, Prisma } from "@prisma/client";
+import { cached } from "./cache";
 import { prisma } from "./db";
 import type { CurrencyCode } from "./money";
 import type { NavFilter } from "./navigation";
@@ -46,46 +47,52 @@ const listingInclude = {
 export type ListingProduct = Prisma.ProductGetPayload<{ include: typeof listingInclude }>;
 
 /**
- * Loads matching published products. Price filtering and price sorting depend on the active
- * currency and sale prices, so the final filter/sort happens in memory after the DB query —
- * fine for catalogues of a few thousand products; move to a search index beyond that.
+ * Every published product with its photos, sizes/colours and category, newest first. Cached in memory
+ * (src/lib/cache.ts) so listings, search, the menu and product pages don't each re-read the database;
+ * fine for catalogues of a few thousand products — move to a search index beyond that.
  */
-export async function listProducts(q: ListingQuery) {
-  const where: Prisma.ProductWhereInput = { status: "PUBLISHED" };
-  if (q.department) where.department = q.department;
-  if (q.categorySlug) where.category = { slug: q.categorySlug };
-  if (q.collection === "bestsellers") where.bestseller = true;
-  if (q.currency === "USD") where.priceUSD = { not: null };
-  if (q.collection === "sale")
-    where.OR = q.currency === "GBP" ? [{ salePriceGBP: { not: null } }] : [{ salePriceUSD: { not: null } }];
-  if (q.collection === "new-arrivals") where.createdAt = { gte: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60) };
-  const and: Prisma.ProductWhereInput[] = [];
+export function getCatalog(): Promise<{ products: ListingProduct[]; bySlug: Map<string, ListingProduct> }> {
+  return cached("catalog", async () => {
+    const products = await prisma.product.findMany({ where: { status: "PUBLISHED" }, include: listingInclude, orderBy: { createdAt: "desc" } });
+    return { products, bySlug: new Map(products.map((p) => [p.slug, p])) };
+  });
+}
+
+const lower = (s: string | null | undefined) => (s ?? "").toLowerCase();
+
+/** Whether a product matches the listing's department/category/collection/search rules (everything except size, colour and price). */
+export function matchesListing(p: ListingProduct, q: Omit<ListingQuery, "page" | "sort">, now = Date.now()): boolean {
+  // A menu filter's department takes the place of the page's department.
+  const department = q.filter?.department ?? q.department;
+  if (department && p.department !== department) return false;
+  if (q.categorySlug && p.category.slug !== q.categorySlug) return false;
+  if (q.collection === "bestsellers" && !p.bestseller) return false;
+  if (q.currency === "USD" && p.priceUSD == null) return false;
+  if (q.collection === "sale" && (q.currency === "GBP" ? p.salePriceGBP : p.salePriceUSD) == null) return false;
+  if (q.collection === "new-arrivals" && p.createdAt.getTime() < now - 1000 * 60 * 60 * 24 * 60) return false;
   if (q.filter) {
-    if (q.filter.department) where.department = q.filter.department;
     // A product matches if it is in ANY of the listed categories OR collections.
-    const anyOf: Prisma.ProductWhereInput[] = [];
-    if (q.filter.categories?.length) anyOf.push({ category: { slug: { in: q.filter.categories } } });
-    for (const name of q.filter.collections ?? []) anyOf.push({ collection: { equals: name, mode: "insensitive" } });
-    if (anyOf.length) and.push({ OR: anyOf });
+    const categories = q.filter.categories ?? [];
+    const collections = (q.filter.collections ?? []).map(lower);
+    if ((categories.length || collections.length) && !categories.includes(p.category.slug) && !collections.includes(lower(p.collection))) return false;
   }
   if (q.q) {
-    const term = q.q.slice(0, 80);
-    and.push(
-      {
-        OR: [
-          { name: { contains: term, mode: "insensitive" } },
-          { description: { contains: term, mode: "insensitive" } },
-          { collection: { contains: term, mode: "insensitive" } },
-          { category: { name: { contains: term, mode: "insensitive" } } },
-          { variants: { some: { sku: { equals: term, mode: "insensitive" } } } },
-          { variants: { some: { colour: { contains: term, mode: "insensitive" } } } },
-        ],
-      },
-    );
+    const term = lower(q.q.slice(0, 80));
+    const found =
+      lower(p.name).includes(term) ||
+      lower(p.description).includes(term) ||
+      lower(p.collection).includes(term) ||
+      lower(p.category.name).includes(term) ||
+      p.variants.some((v) => lower(v.sku) === term || lower(v.colour).includes(term));
+    if (!found) return false;
   }
-  if (and.length) where.AND = and;
+  return true;
+}
 
-  const all = await prisma.product.findMany({ where, include: listingInclude, orderBy: { createdAt: "desc" } });
+/** Matching published products for a listing page, with size/colour facets, filtered, sorted and paged. */
+export async function listProducts(q: ListingQuery) {
+  const now = Date.now();
+  const all = (await getCatalog()).products.filter((p) => matchesListing(p, q, now));
 
   // Facets come from the products matching the base query, before size/colour/price filters.
   const facetSizes = new Set<string>();
@@ -159,10 +166,7 @@ export function sortSizes(sizes: string[]) {
 }
 
 export async function getProductBySlug(slug: string) {
-  return prisma.product.findFirst({
-    where: { slug, status: "PUBLISHED" },
-    include: listingInclude,
-  });
+  return (await getCatalog()).bySlug.get(slug) ?? null;
 }
 
 export function slugify(input: string) {

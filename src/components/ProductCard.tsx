@@ -3,11 +3,11 @@ import type { ListingProduct } from "@/lib/catalog";
 import { formatMoney, type CurrencyCode } from "@/lib/money";
 import { resolvePrice } from "@/lib/pricing";
 import { WishButton } from "./HeaderClient";
+import { GRID_SIZES, ShopImage } from "./ShopImage";
 
 export function ProductArt({ name, hex, url, alt, priority }: { name: string; hex: string; url?: string | null; alt?: string; priority?: boolean }) {
   if (url) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt={alt ?? name} loading={priority ? "eager" : "lazy"} />;
+    return <ShopImage src={url} alt={alt ?? name} sizes={GRID_SIZES} priority={priority} />;
   }
   // Elegant placeholder until product photography is uploaded in the admin.
   return (

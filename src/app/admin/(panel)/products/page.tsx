@@ -10,7 +10,7 @@ export default async function ProductsAdmin({ searchParams }: { searchParams: Pr
   const sp = await searchParams;
   const where: Prisma.ProductWhereInput = {};
   if (sp.status && ["DRAFT", "PUBLISHED", "ARCHIVED"].includes(sp.status)) where.status = sp.status as ProductStatus;
-  if (sp.q) where.OR = [{ name: { contains: sp.q, mode: "insensitive" } }, { variants: { some: { sku: { contains: sp.q, mode: "insensitive" } } } }];
+  if (sp.q) where.OR = [{ name: { contains: sp.q } }, { variants: { some: { sku: { contains: sp.q } } } }];
   const products = await prisma.product.findMany({ where, include: { category: true, variants: true, images: { take: 1, orderBy: { position: "asc" } } }, orderBy: { updatedAt: "desc" }, take: 300 });
 
   return (

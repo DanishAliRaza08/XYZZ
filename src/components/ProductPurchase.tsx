@@ -4,6 +4,7 @@ import Link from "next/link";
 import { createContext, useContext, useMemo, useState } from "react";
 import { photosForColour } from "@/lib/photos";
 import { HeartIcon } from "./Icons";
+import { ShopImage } from "./ShopImage";
 import { useStore } from "./StoreProvider";
 
 type V = { id: string; size: string; colour: string; colourHex: string; stock: number };
@@ -118,8 +119,8 @@ export function Gallery({ images: allImages, name, hexByColour }: { images: { ur
       <div className="gallery">
         {images.map((img, i) => (
           <div className="card-media" key={img.url + i}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={img.url} alt={img.alt || name} loading={i === 0 ? "eager" : "lazy"} onClick={() => setZoom(img.url)} />
+            {/* Main photo spans the gallery (half the page on desktop); the rest sit two to a row. */}
+            <ShopImage src={img.url} alt={img.alt || name} sizes={i === 0 ? "(max-width: 900px) 100vw, 50vw" : "(max-width: 900px) 100vw, 25vw"} priority={i === 0} onClick={() => setZoom(img.url)} />
           </div>
         ))}
       </div>

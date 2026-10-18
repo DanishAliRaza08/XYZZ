@@ -1,4 +1,5 @@
 import type { EventTheme, SeasonalEvent } from "@prisma/client";
+import { cached } from "./cache";
 import { prisma } from "./db";
 
 export type EventBanner = { image: string; title: string; href: string };
@@ -15,16 +16,11 @@ export function themeSlug(theme: EventTheme) {
 
 /** The event currently shown on the storefront: switched on and inside its date window. Newest start wins. */
 export async function getActiveEvent(now = new Date()): Promise<SeasonalEvent | null> {
-  return prisma.seasonalEvent.findFirst({
-    where: {
-      active: true,
-      AND: [
-        { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
-        { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
-      ],
-    },
-    orderBy: [{ startsAt: { sort: "desc", nulls: "last" } }, { updatedAt: "desc" }],
-  });
+  // The switched-on events are cached; the date window is checked on every call so events start and end on time.
+  const switchedOn = await cached("events", () =>
+    prisma.seasonalEvent.findMany({ where: { active: true }, orderBy: [{ startsAt: { sort: "desc", nulls: "last" } }, { updatedAt: "desc" }] }),
+  );
+  return switchedOn.find((e) => isLive(e, now)) ?? null;
 }
 
 export function isLive(e: Pick<SeasonalEvent, "active" | "startsAt" | "endsAt">, now = new Date()) {

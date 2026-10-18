@@ -1,3 +1,4 @@
+import { cached, invalidateStoreCache } from "./cache";
 import { prisma } from "./db";
 import { DEFAULT_SHIPPING, type ShippingRates } from "./pricing";
 
@@ -45,7 +46,11 @@ export const DEFAULT_SETTINGS: SiteSettings = {
 
 const KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof SiteSettings)[];
 
-export async function getSettings(): Promise<SiteSettings> {
+export function getSettings(): Promise<SiteSettings> {
+  return cached("settings", loadSettings);
+}
+
+async function loadSettings(): Promise<SiteSettings> {
   const rows = await prisma.setting.findMany();
   const map = new Map(rows.map((r) => [r.key, r.value]));
   const out: Record<string, unknown> = { ...DEFAULT_SETTINGS };
@@ -73,6 +78,7 @@ export async function saveSettings(patch: Partial<SiteSettings>) {
       }),
     );
   await prisma.$transaction(ops);
+  invalidateStoreCache();
 }
 
 export function whatsappLink(number: string, text: string): string | null {

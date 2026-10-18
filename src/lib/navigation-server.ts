@@ -1,16 +1,12 @@
 // Builds the header menu from SECTIONS (src/lib/navigation.ts). For department sections it also adds
 // any category that has published products there but isn't in the menu yet, under "More in <Section>",
 // so categories created in Admin → Categories appear in the dropdown without code changes.
-import { DEPARTMENTS } from "./catalog";
-import { prisma } from "./db";
+import { DEPARTMENTS, getCatalog } from "./catalog";
 import { SALE_LINK, SECTIONS, sectionHref, type NavItem } from "./navigation";
 
 export async function buildNav(): Promise<NavItem[]> {
-  const rows = await prisma.product.findMany({
-    where: { status: "PUBLISHED" },
-    select: { department: true, category: { select: { slug: true, name: true, sortOrder: true } } },
-    distinct: ["department", "categoryId"],
-  });
+  // One entry per department + category that has published products (from the cached catalogue).
+  const rows = [...new Map((await getCatalog()).products.map((p) => [`${p.department}|${p.categoryId}`, p])).values()];
 
   const items: NavItem[] = SECTIONS.map((section) => {
     const columns = section.columns.map((col) => ({

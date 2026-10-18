@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type { Prisma } from "@prisma/client";
+import { invalidateStoreCache } from "./cache";
 import { prisma } from "./db";
 import type { Quote } from "./quote";
 import { getStripe } from "./stripe";
@@ -76,7 +77,7 @@ export async function markOrderPaid(opts: {
   amountPaid: number | null;
   currency: string | null;
 }) {
-  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  const order = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const order = await tx.order.findUnique({ where: { id: opts.orderId }, include: { items: true } });
     if (!order || order.status !== "PENDING_PAYMENT") return order;
 
@@ -106,6 +107,8 @@ export async function markOrderPaid(opts: {
       },
     });
   });
+  invalidateStoreCache(); // stock went down, so listings and product pages must show it
+  return order;
 }
 
 export async function cancelUnpaidOrder(orderId: string) {

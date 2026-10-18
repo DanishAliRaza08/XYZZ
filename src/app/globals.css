@@ -228,7 +228,7 @@ p { margin: 0 0 1em; }
 .tile-label small { display: block; font-family: var(--font-sans); font-size: 0.78rem; color: var(--muted); }
 .dept-tile { position: relative; display: flex; flex-direction: column; border-radius: var(--radius-lg); overflow: hidden; background: var(--surface); border: 1px solid var(--border); transition: box-shadow 0.2s ease, transform 0.2s ease; }
 .dept-tile:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
-.dept-tile-media { display: block; aspect-ratio: 4/3; background: var(--surface-2); overflow: hidden; }
+.dept-tile-media { position: relative; display: block; aspect-ratio: 4/3; background: var(--surface-2); overflow: hidden; }
 .dept-tile-media img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
 .dept-tile:hover .dept-tile-media img { transform: scale(1.04); }
 .dept-tile-body { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px 18px; flex: 1; }

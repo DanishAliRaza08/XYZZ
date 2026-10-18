@@ -12,7 +12,7 @@ export default async function OrdersAdmin({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const where: Prisma.OrderWhereInput = {};
   if (sp.status && STATUSES.includes(sp.status as OrderStatus)) where.status = sp.status as OrderStatus;
-  if (sp.q) where.OR = [{ number: { contains: sp.q, mode: "insensitive" } }, { email: { contains: sp.q, mode: "insensitive" } }, { name: { contains: sp.q, mode: "insensitive" } }];
+  if (sp.q) where.OR = [{ number: { contains: sp.q } }, { email: { contains: sp.q } }, { name: { contains: sp.q } }];
   const orders = await prisma.order.findMany({ where, orderBy: { createdAt: "desc" }, take: 200, include: { _count: { select: { items: true } } } });
   return (
     <div className="stack">

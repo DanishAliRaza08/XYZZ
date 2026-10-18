@@ -34,7 +34,7 @@ See [`docs/PLAN.md`](docs/PLAN.md) for the research, architecture, compliance ch
 
 ## 2. Run it on your computer
 
-Requirements: Node.js 20+ and PostgreSQL 14+.
+Requirements: Node.js 20+ and MySQL 8 (or MariaDB 10.6+). On Windows, the free MySQL Installer or XAMPP gives you a local MySQL server.
 
 ```bash
 npm install
@@ -53,7 +53,7 @@ The seed is safe to run again at any time: it adds anything missing and leaves y
 
 | Variable | What it's for |
 |---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
+| `DATABASE_URL` | MySQL connection string: `mysql://USER:PASSWORD@HOST:3306/DATABASE_NAME`. Special characters in the password must be URL-encoded (`@` → `%40`) |
 | `SITE_URL` | Public address, e.g. `https://www.yourdomain.co.uk`. Used for Stripe redirects and the sitemap |
 | `SESSION_SECRET` | Long random string (at least 16 characters) that signs admin and customer sign-ins (`openssl rand -hex 32`). Without it the shop still works, but admin login and customer accounts don't |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Your owner account. Re-running the seed resets this password |
@@ -261,9 +261,21 @@ Refunds are issued from the Stripe dashboard. A full refund switches the order t
 
 ## 8. Put it live on the internet
 
-A simple, reliable setup:
+### On Hostinger (Business / "Unlimited" web hosting with Node.js web apps)
 
-1. **Database:** create a managed PostgreSQL database (for example Neon, Supabase, Railway or AWS RDS) and turn on automatic backups.
+1. **Database:** hPanel → **Databases → MySQL Databases** → create a database, a user and a password. Your `DATABASE_URL` is `mysql://USER:PASSWORD@localhost:3306/DATABASE_NAME` (hPanel shows the exact host if it isn't `localhost`).
+2. **App:** hPanel → **Websites → Add website → Node.js web app** → connect GitHub, repository `XYZZ`, branch `main`.
+   - Node.js version: 20 or newer
+   - Build command: `npm ci && npm run build && npx prisma migrate deploy`
+   - Start command: `npm start`
+3. **Environment variables:** add every variable from `.env.example` in the app's settings (not a `.env` file). Use a new random `SESSION_SECRET`, and set `SITE_URL` to `https://your-domain`.
+4. **First run:** once deployed, run `npm run db:seed` once (from the app's terminal, or from your PC with `DATABASE_URL` pointing at the Hostinger database if remote MySQL access is enabled) to create your admin login, categories and the seasonal events.
+5. **Stripe:** add the webhook endpoint `https://your-domain/api/webhooks/stripe` (section 7) and put its signing secret in `STRIPE_WEBHOOK_SECRET`.
+6. **Uploaded photos:** after your first redeploy, check a photo uploaded in the admin still shows. If redeploys wipe `storage/uploads`, set `UPLOAD_DIR` to a folder outside the app folder.
+
+### Anywhere else
+
+1. **Database:** any MySQL 8 / MariaDB 10.6+ database (Hostinger, PlanetScale, AWS RDS, a VPS…) with automatic backups.
 2. **Hosting:** deploy this repository to a Node host such as Railway, Render or Fly.io, or use Docker on a VPS.
    - Build command: `npm ci && npm run build && npx prisma migrate deploy`
    - Start command: `npm start`
@@ -273,6 +285,12 @@ A simple, reliable setup:
 3. **Domain:** buy your domain, point its DNS at the host and turn on HTTPS (most hosts do this automatically). Set `SITE_URL` to the final https address.
 4. Run `npm run db:seed` once in production to create your admin login, then sign in and change your password (Admin → My account).
 5. Complete the launch checklist in `docs/PLAN.md` before switching Stripe to live mode.
+
+### Why the live site is fast (and why `npm run dev` feels slow)
+
+- `npm run dev` compiles each page the first time you open it, so pages take a few seconds on your computer. That's normal; the live site uses `npm run build` + `npm start`, which is many times faster.
+- The catalogue, menu, settings and seasonal event are kept in the server's memory for up to a minute (`src/lib/cache.ts`), so page views don't re-read the database. Saving anything in the admin, or a paid order, refreshes it straight away.
+- Product photos are served resized and compressed for each screen (Next.js image optimisation), not as full-size originals. Upload photos about 1200–1600px wide; bigger files only slow down the first visitor.
 
 ---
 
@@ -297,7 +315,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | Path | What it does |
 |---|---|
 | `prisma/schema.prisma` | The database design: products, variants (size/colour/stock), categories, orders, chats, seasonal events, settings, staff, audit log |
-| `prisma/migrations/` | Step-by-step database changes, applied with `npx prisma migrate deploy`. Never edit old ones; create new ones with `npx prisma migrate dev` |
+| `prisma/migrations/` | Step-by-step database changes (MySQL), applied with `npx prisma migrate deploy`. Never edit old ones; create new ones with `npx prisma migrate dev` |
 | `prisma/seed.ts` | `npm run db:seed`: creates the admin login, every category, the imported products and the starter events |
 | `prisma/data/products.json` | Created by the product import; read by the seed |
 
@@ -372,6 +390,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `HeaderClient.tsx` | Interactive header parts: mobile menu, search box, wishlist and bag counters |
 | `Listing.tsx` | A product list page: title, sub-page chips, filters (size, colour, price, stock), sorting, pagination |
 | `ProductCard.tsx` | One product tile in a grid: photo, name, price, colours, sale/new labels |
+| `ShopImage.tsx` | Shows a photo resized for the screen (used for product, banner and homepage photos) |
 | `ProductPurchase.tsx` | Size and colour picker with add to bag / wishlist, and the photo gallery that switches to the chosen colour's photos |
 | `AccountForms.tsx` | Customer sign-in and sign-up forms |
 | `BagAndCheckout.tsx` | The bag and the two-step checkout (details, then card payment) |
@@ -413,6 +432,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `customer.ts` | Customer accounts: who is signed in, their Stripe customer and saved cards |
 | `photos.ts` | Picks which product photos to show for the chosen colour |
 | `uploads.ts` | Where uploads are stored; image type checks |
+| `cache.ts` | Keeps catalogue, menu, settings and events in memory for a minute; cleared on admin saves and paid orders |
 | `rate-limit.ts` | Stops too many requests from one visitor |
 | `currency-server.ts` | Reads the visitor's chosen currency |
 | `db.ts` | The database connection |
@@ -424,6 +444,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `pricing.test.ts` | Prices, sales, discounts, delivery |
 | `checkout-schema.test.ts` | Checkout validation |
 | `session.test.ts` | Admin and customer login tokens |
+| `catalog-cache.test.ts` | Catalogue search and filters, and the memory cache |
 | `photos.test.ts` | Photos per colour: which photos show for each colour |
 | `card-payment.integration.test.ts` | Card payments, guest and signed-in (saved cards, order on the account), with a fake Stripe (runs when `DATABASE_URL` is set) |
 | `navigation.test.ts` | The menu config is valid (real categories, no clashing addresses) |
@@ -440,4 +461,4 @@ npm test            # unit tests + database integration tests (when DATABASE_URL
 npm run build       # production build
 ```
 
-Tech stack: Next.js 15 (App Router) · React 19 · TypeScript · PostgreSQL + Prisma · Stripe (Payment Element + PaymentIntents) · Google Gemini API (REST, no SDK) · plain CSS design tokens for theming.
+Tech stack: Next.js 15 (App Router) · React 19 · TypeScript · MySQL + Prisma · Stripe (Payment Element + PaymentIntents) · Google Gemini API (REST, no SDK) · plain CSS design tokens for theming.

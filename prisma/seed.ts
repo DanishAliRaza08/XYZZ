@@ -124,16 +124,28 @@ async function seedEvents() {
   console.log("Created Halloween and Christmas events (edit them in Admin → Seasonal events).");
 }
 
-async function main() {
+// `--on-deploy` (used by `npm run build`, e.g. on Hostinger): runs on every deploy, so it only creates the admin
+// account when it doesn't exist yet (a password changed in the admin is kept) and never stops the build.
+const ON_DEPLOY = process.argv.includes("--on-deploy");
+
+async function seedAdmin() {
   const email = process.env.ADMIN_EMAIL?.toLowerCase();
   const password = process.env.ADMIN_PASSWORD;
-  if (!email || !password || password.length < 10) throw new Error("Set ADMIN_EMAIL and ADMIN_PASSWORD (10+ characters) in .env before seeding");
+  if (!email || !password || password.length < 10) {
+    if (ON_DEPLOY) return console.log("Admin account skipped: set ADMIN_EMAIL and ADMIN_PASSWORD (10+ characters) to create it.");
+    throw new Error("Set ADMIN_EMAIL and ADMIN_PASSWORD (10+ characters) in .env before seeding");
+  }
+  if (ON_DEPLOY && (await prisma.adminUser.findUnique({ where: { email } }))) return console.log(`Admin account already exists: ${email}`);
   await prisma.adminUser.upsert({
     where: { email },
     create: { email, name: "Owner", role: "SUPER_ADMIN", passwordHash: await bcrypt.hash(password, 12) },
     update: { passwordHash: await bcrypt.hash(password, 12), active: true, role: "SUPER_ADMIN" },
   });
   console.log(`Admin account ready: ${email}`);
+}
+
+async function main() {
+  await seedAdmin();
 
   // Every category the menu links to (src/lib/categories.ts). Existing categories keep any edits made in the admin.
   for (const [i, c] of CATEGORIES.entries())

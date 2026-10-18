@@ -264,12 +264,11 @@ Refunds are issued from the Stripe dashboard. A full refund switches the order t
 ### On Hostinger (a plan with "Web Apps" — Unlimited or Cloud; Premium has no Node.js web apps)
 
 1. **Database:** hPanel → **Databases → MySQL Databases** → create a database, a user and a password. Your `DATABASE_URL` is `mysql://USER:PASSWORD@localhost:3306/DATABASE_NAME` (hPanel shows the exact host if it isn't `localhost`).
-2. **App:** hPanel → **Websites → Add website → Node.js web app** → connect GitHub, repository `XYZZ`, branch `main`.
-   - Node.js version: 20 or newer
-   - Build command: `npm ci && npm run build && npx prisma migrate deploy`
-   - Start command: `npm start`
-3. **Environment variables:** add every variable from `.env.example` in the app's settings (not a `.env` file). Use a new random `SESSION_SECRET`, and set `SITE_URL` to `https://your-domain`.
-4. **First run:** once deployed, run `npm run db:seed` once (from the app's terminal, or from your PC with `DATABASE_URL` pointing at the Hostinger database if remote MySQL access is enabled) to create your admin login, categories and the seasonal events.
+2. **App:** hPanel → **Websites → Add website → Node.js web app** → connect GitHub (repository `XYZZ`, branch `main`) or upload the ZIP.
+   - Framework: Next.js · Node.js version: 20 or newer · Package manager: npm · Output directory: `.next`
+   - Build command: `npm run build`. It creates/updates the database tables, creates your admin login, categories and seasonal events on the first deploy (an admin password you later change is kept), then builds the site.
+3. **Environment variables:** add every variable from `.env.example` in the app's settings (not a `.env` file). Use a new random `SESSION_SECRET`, and set `SITE_URL` to `https://your-domain`. `ADMIN_EMAIL` and `ADMIN_PASSWORD` (10+ characters) are your admin login.
+4. **Deploy**, then sign in at `https://your-domain/admin`.
 5. **Stripe:** add the webhook endpoint `https://your-domain/api/webhooks/stripe` (section 7) and put its signing secret in `STRIPE_WEBHOOK_SECRET`.
 6. **Uploaded photos:** after your first redeploy, check a photo uploaded in the admin still shows. If redeploys wipe `storage/uploads`, set `UPLOAD_DIR` to a folder outside the app folder.
 
@@ -277,7 +276,7 @@ Refunds are issued from the Stripe dashboard. A full refund switches the order t
 
 1. **Database:** any MySQL 8 / MariaDB 10.6+ database (Hostinger, PlanetScale, AWS RDS, a VPS…) with automatic backups.
 2. **Hosting:** deploy this repository to a Node host such as Railway, Render or Fly.io, or use Docker on a VPS.
-   - Build command: `npm ci && npm run build && npx prisma migrate deploy`
+   - Build command: `npm ci && npm run build` (the build also applies database migrations)
    - Start command: `npm start`
    - Set every variable from `.env.example` in the host's settings.
    - Use persistent storage for `UPLOAD_DIR`, or move uploads to object storage (S3/R2). See the roadmap.

@@ -65,7 +65,7 @@ async function run(job: ImportJob, opts: ImportOptions, adminId: string) {
     const inShop = new Set(products.map((p) => p.slug));
     const categoryIds = new Map(categories.map((c) => [c.slug, c.id]));
     const usedSlugs = new Set<string>(inShop);
-    const usedSkus = new Set<string>(variants.map((v) => v.sku)); // SKUs already used by other products get a suffix
+    const usedSkus = new Set<string>(variants.map((v) => v.sku.toLowerCase())); // lower-case: MySQL compares SKUs ignoring case
     const dir = uploadDir();
     await mkdir(dir, { recursive: true });
 
@@ -106,7 +106,8 @@ async function run(job: ImportJob, opts: ImportOptions, adminId: string) {
         categoryIds.set(cat.slug, (categoryId = cat.id));
       }
 
-      await prisma.product.create({
+      // One product the database refuses (e.g. a clash) is noted and skipped; it doesn't stop the whole import.
+      const saved = await prisma.product.create({
         data: {
           slug: product.slug,
           name: product.name,
@@ -123,7 +124,12 @@ async function run(job: ImportJob, opts: ImportOptions, adminId: string) {
           variants: { create: product.variants.map((v, i) => ({ ...v, sortOrder: i })) },
           images: { create: images.map((img, i) => ({ url: img.url, alt: img.alt, position: i })) },
         },
+      }).catch((e: unknown) => {
+        job.skipped++;
+        note(job, `Skipped "${product.name}": ${e instanceof Error ? e.message.split("\n").filter(Boolean).pop() : "could not be saved"}`);
+        return null;
       });
+      if (!saved) continue;
       job.created++;
       job.photos += images.length;
       note(job, `Added "${product.name}" (${images.length} photo${images.length === 1 ? "" : "s"})`);

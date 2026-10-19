@@ -76,6 +76,7 @@ Secrets stay on the server. They are never sent to the browser and `.env` is git
 |---|---|
 | Add a product (name, description, prices, sizes/colours/stock, photos) | Admin → Products → **New product** |
 | Write, edit, publish or delete a blog post | Admin → **Blog** → New post / Edit |
+| Publish, move to draft, archive or delete many products at once | Admin → Products → tick the products (or the box in the header for all) → choose an action |
 | Copy all products from another Shopify shop (e.g. a supplier) | Admin → **Import products** — see [section 6](#6-import-products-from-a-shopify-store) |
 | Show the right photo for each colour (white skirt photo when "White" is picked) | Admin → Products → the product → **Photos**: set each photo's colour (see below) |
 | Change prices for many products at once, put items on sale, end a sale | Admin → **Pricing** |
@@ -203,7 +204,7 @@ If two events overlap, the one that started most recently is shown. Switch an ev
 
 ### From the admin (easiest)
 
-**Admin → Import products**: paste the shop's address (e.g. `https://gumandberries.co.uk`), choose Published or Draft, how many photos per product and the stock per size, then press **Start import**. The import runs on the server and the page shows its progress; you can leave the page and come back. Photos are saved with your other uploads (`UPLOAD_DIR`). Products already in the shop are left as they are (including your edits), so running it again later only adds new products. Only Shopify shops have the public product feed this needs.
+**Admin → Import products**: paste the shop's address (e.g. `https://gumandberries.co.uk`), choose Published or Draft, how many photos per product and the stock per size, then press **Start import**. The import runs on the server and the page shows its progress; you can leave the page and come back. Photos are saved with your other uploads (`UPLOAD_DIR`). Products already in the shop are left as they are (including your edits), so running it again later only adds new products. Every size/colour gets a new SKU of its own (`GUM-<shop's product number>-1`, `-2`, …), because shops often repeat SKUs; a product that can't be saved is skipped and listed, without stopping the import. Only Shopify shops have the public product feed this needs.
 
 ### From your computer
 

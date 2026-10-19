@@ -39,7 +39,9 @@ describe("shop address and product mapping", () => {
 describe.skipIf(!enabled)("Admin → Import products (database)", () => {
   let dir: string;
   let prisma: typeof import("@/lib/db").prisma;
-  const feed = [product(1), product(2), product(3, { variants: [] })];
+  // 4: every size has the same SKU (common on Shopify) — this used to stop the import with "Variant_sku_key".
+  const sameSku = (n: number) => product(n, { variants: product(n).variants.map((v) => ({ ...v, sku: "DRESS-1" })) });
+  const feed = [product(1), product(2), product(3, { variants: [] }), sameSku(4), sameSku(5)];
 
   beforeAll(async () => {
     dir = await mkdtemp(path.join(os.tmpdir(), "fr-import-"));
@@ -52,6 +54,11 @@ describe.skipIf(!enabled)("Admin → Import products (database)", () => {
       return new Response("<html>nope</html>");
     });
     prisma = (await import("@/lib/db")).prisma;
+    // An SKU already in the shop that matches product 5's new SKU apart from upper/lower case.
+    const cat = await prisma.category.findFirstOrThrow();
+    await prisma.product.create({
+      data: { slug: `${tag}-existing`, name: "Existing", description: "Already in the shop", department: "GIRLS", categoryId: cat.id, priceGBP: 1000, variants: { create: { sku: "sho-1005-1", size: "S", colour: "Red" } } },
+    });
   });
 
   afterAll(async () => {
@@ -73,20 +80,22 @@ describe.skipIf(!enabled)("Admin → Import products (database)", () => {
   it("adds new products with their photos, and skips ones without sizes", async () => {
     const job = await runImport();
     expect(job.status).toBe("done");
-    expect(job).toMatchObject({ total: 3, created: 2, skipped: 1, existing: 0, photos: 2 });
-    const saved = await prisma.product.findMany({ where: { slug: { startsWith: tag } }, include: { images: true, variants: true }, orderBy: { slug: "asc" } });
-    expect(saved).toHaveLength(2);
+    expect(job).toMatchObject({ total: 5, created: 4, skipped: 1, existing: 0, photos: 4 });
+    const saved = await prisma.product.findMany({ where: { slug: { startsWith: `${tag}-party` } }, include: { images: true, variants: { orderBy: { sortOrder: "asc" } } }, orderBy: { slug: "asc" } });
+    expect(saved).toHaveLength(4);
+    // Every size gets its own new SKU, even when the shop repeated one.
+    expect(saved.map((p) => p.variants.map((v) => v.sku))).toEqual([["SHO-1001-1", "SHO-1001-2"], ["SHO-1002-1", "SHO-1002-2"], ["SHO-1004-1", "SHO-1004-2"], ["SHO-1005-1-2", "SHO-1005-2"]]);
     expect(saved[0]).toMatchObject({ status: "DRAFT", priceGBP: 3000, salePriceGBP: 2400 });
     expect(saved[0].images).toHaveLength(1); // the broken photo is left out
     expect(saved[0].images[0].url).toMatch(/^\/uploads\/[a-f0-9]{32}\.jpg$/);
     expect(saved[0].variants.map((v) => v.stock).sort()).toEqual([0, 5]);
-    expect(await readdir(dir)).toHaveLength(2);
+    expect(await readdir(dir)).toHaveLength(4);
   });
 
   it("running it again leaves existing products alone", async () => {
     await prisma.product.updateMany({ where: { slug: `${tag}-party-dress-1` }, data: { name: "Renamed in admin" } });
     const job = await runImport();
-    expect(job).toMatchObject({ status: "done", created: 0, existing: 2, skipped: 1 });
+    expect(job).toMatchObject({ status: "done", created: 0, existing: 4, skipped: 1 });
     expect((await prisma.product.findUnique({ where: { slug: `${tag}-party-dress-1` } }))?.name).toBe("Renamed in admin");
   });
 });

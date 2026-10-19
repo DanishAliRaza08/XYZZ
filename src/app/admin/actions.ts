@@ -253,6 +253,35 @@ export async function setProductStatus(fd: FormData) {
   refreshStore();
 }
 
+/** Admin → Products: publish, move to draft, archive or delete every ticked product at once. */
+export async function bulkProducts(fd: FormData) {
+  const admin = await requireAdminPage("products");
+  const ids = [...new Set(fd.getAll("ids").map(String).filter(Boolean))].slice(0, 1000);
+  const action = str(fd, "bulk");
+  const back = new URLSearchParams();
+  for (const k of ["q", "status"]) if (str(fd, k)) back.set(k, str(fd, k));
+  let message = "Select at least one product first.";
+
+  if (ids.length && (action === "PUBLISHED" || action === "DRAFT" || action === "ARCHIVED")) {
+    const { count } = await prisma.product.updateMany({ where: { id: { in: ids } }, data: { status: action } });
+    message = `${count} product${count === 1 ? "" : "s"} ${action === "PUBLISHED" ? "published" : action === "DRAFT" ? "moved to draft" : "archived"}.`;
+    await audit(admin.id, `bulk-status:${action}`, "Product", undefined, `${count} products`);
+  } else if (ids.length && action === "delete") {
+    // Products with order history are archived instead, so past orders keep their details.
+    const withOrders = new Set(
+      (await prisma.variant.findMany({ where: { productId: { in: ids }, orderItems: { some: {} } }, select: { productId: true }, distinct: ["productId"] })).map((v) => v.productId),
+    );
+    const deletable = ids.filter((id) => !withOrders.has(id));
+    const { count } = await prisma.product.deleteMany({ where: { id: { in: deletable } } });
+    if (withOrders.size) await prisma.product.updateMany({ where: { id: { in: [...withOrders] } }, data: { status: "ARCHIVED" } });
+    message = `${count} product${count === 1 ? "" : "s"} deleted${withOrders.size ? `; ${withOrders.size} with past orders archived instead` : ""}.`;
+    await audit(admin.id, "bulk-delete", "Product", undefined, message);
+  }
+  refreshStore();
+  back.set("done", message);
+  redirect(`/admin/products?${back}`);
+}
+
 export async function deleteProduct(fd: FormData) {
   const admin = await requireAdminPage("products");
   const id = str(fd, "id");

@@ -204,6 +204,8 @@ function ageRange(sizes: string[]) {
 /**
  * One Shopify product → our product (without photos; `photos` lists the image addresses to download).
  * Returns null for products with no sizes or no price. usedSlugs/usedSkus keep slugs and SKUs unique within a run.
+ * Every size/colour gets a new SKU of our own — <shop prefix>-<shop's product number>-<n>, e.g. GUM-8123456789-3 —
+ * because shops often repeat or leave out SKUs. usedSkus holds lower-case SKUs: MySQL treats ABC1 and abc1 as the same.
  */
 export function mapShopifyProduct(
   p: ShopifyProduct,
@@ -229,8 +231,9 @@ export function mapShopifyProduct(
     const colour = (opt(v, colourIdx) ?? "As pictured").slice(0, 40);
     if (combos.has(`${size}|${colour}`)) continue;
     combos.add(`${size}|${colour}`);
-    let sku = (v.sku ?? "").trim().slice(0, 60) || `${prefix}-${p.id}-${vi + 1}`;
-    while (usedSkus.has(sku)) sku = `${sku}-${vi + 1}`;
+    let sku = `${prefix}-${p.id}-${variants.length + 1}`;
+    for (let n = 2; usedSkus.has(sku.toLowerCase()); n++) sku = `${prefix}-${p.id}-${variants.length + 1}-${n}`;
+    usedSkus.add(sku.toLowerCase());
     variants.push({ sku, size, colour, colourHex: colourHex(colour), stock: v.available === false ? 0 : opts.defaultStock });
   }
   if (!variants.length) return null;
@@ -244,7 +247,6 @@ export function mapShopifyProduct(
   const salePriceGBP = onSale ? top.price! : null;
 
   usedSlugs.add(slug);
-  for (const v of variants) usedSkus.add(v.sku);
   const description = htmlToText(p.body_html);
   return {
     product: {

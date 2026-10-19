@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { Prisma, ProductStatus } from "@prisma/client";
-import { setProductStatus } from "../../actions";
+import { bulkProducts, setProductStatus } from "../../actions";
+import { BulkBar, SelectAll } from "@/components/admin/BulkSelect";
 import { requireAdminPage } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 
-export default async function ProductsAdmin({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
+export default async function ProductsAdmin({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; done?: string }> }) {
   await requireAdminPage("products");
   const sp = await searchParams;
   const where: Prisma.ProductWhereInput = {};
@@ -31,15 +32,24 @@ export default async function ProductsAdmin({ searchParams }: { searchParams: Pr
         </select>
         <button className="btn btn-sm btn-outline">Filter</button>
       </form>
+      {sp.done && <p className="alert alert-success" role="status" style={{ margin: 0 }}>{sp.done}</p>}
+      {/* Bulk actions: the row checkboxes and the buttons in BulkBar submit this form (form="bulk"). */}
+      <form id="bulk" action={bulkProducts}>
+        <input type="hidden" name="q" value={sp.q ?? ""} />
+        <input type="hidden" name="status" value={sp.status ?? ""} />
+      </form>
+      <BulkBar formId="bulk" total={products.length} />
+      {products.length === 300 && <p className="muted small" style={{ margin: 0 }}>Showing the 300 most recently edited products — search or filter by status to reach the rest.</p>}
       <div className="table-wrap">
         <table className="table">
-          <thead><tr><th></th><th>Product</th><th>Department</th><th>UK price</th><th>US price</th><th>Stock</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th style={{ width: 36 }}><SelectAll formId="bulk" /></th><th></th><th>Product</th><th>Department</th><th>UK price</th><th>US price</th><th>Stock</th><th>Status</th><th></th></tr></thead>
           <tbody>
-            {products.length === 0 && <tr><td colSpan={8} className="muted center">No products yet — create your first listing.</td></tr>}
+            {products.length === 0 && <tr><td colSpan={9} className="muted center">No products yet — create your first listing.</td></tr>}
             {products.map((p) => {
               const stock = p.variants.reduce((s, v) => s + v.stock, 0);
               return (
                 <tr key={p.id}>
+                  <td><input type="checkbox" name="ids" value={p.id} form="bulk" aria-label={`Select ${p.name}`} /></td>
                   <td>{p.images[0] ? <img src={p.images[0].url} alt="" className="thumb" /> : <div className="thumb" />}</td>
                   <td><Link href={`/admin/products/${p.id}`}><strong>{p.name}</strong></Link><div className="muted small">{p.category.name} · {p.variants.length} variants</div></td>
                   <td>{p.department.toLowerCase()}</td>

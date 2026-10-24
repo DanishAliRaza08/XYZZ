@@ -19,6 +19,7 @@ export default async function ProductsAdmin({ searchParams }: { searchParams: Pr
       <div className="row">
         <h1 style={{ fontSize: "2rem", margin: 0 }}>Products</h1>
         <span className="spacer" />
+        <Link href="/admin/products/excel" className="btn btn-outline btn-sm">Excel import / export</Link>
         <Link href="/admin/pricing" className="btn btn-outline btn-sm">Edit prices</Link>
         <Link href="/admin/products/new" className="btn btn-sm">+ New product</Link>
       </div>

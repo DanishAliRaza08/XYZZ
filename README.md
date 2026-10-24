@@ -8,7 +8,7 @@ A UK-first online shop for children's, women's, men's and baby clothing, school 
 3. [Daily use (admin)](#3-daily-use-admin)
 4. [Menu, categories and pages](#4-menu-categories-and-pages) — how to add pages to Boys, Girls, Footwear…
 5. [Seasonal events (Halloween, Christmas…)](#5-seasonal-events)
-6. [Import products from a Shopify store](#6-import-products-from-a-shopify-store)
+6. [Import products from a Shopify store](#6-import-products-from-a-shopify-store) — and [Excel import / export](#products-in-excel-import--export)
 7. [Set up payments (Stripe)](#7-set-up-payments-stripe)
 8. [Put it live on the internet](#8-put-it-live-on-the-internet)
 9. [Project structure — which file does what](#9-project-structure--which-file-does-what)
@@ -83,6 +83,7 @@ Secrets stay on the server. They are never sent to the browser and `.env` is git
 | Write, edit, publish or delete a blog post | Admin → **Blog** → New post / Edit |
 | Publish, move to draft, archive or delete many products at once | Admin → Products → tick the products (or the box in the header for all) → choose an action |
 | Copy all products from another Shopify shop (e.g. a supplier) | Admin → **Import products** — see [section 6](#6-import-products-from-a-shopify-store) |
+| Export products to Excel, or add/update many products from a spreadsheet | Admin → Products → **Excel import / export** — see [Products in Excel](#products-in-excel-import--export) |
 | Show the right photo for each colour (white skirt photo when "White" is picked) | Admin → Products → the product → **Photos**: set each photo's colour (see below) |
 | Change prices for many products at once, put items on sale, end a sale | Admin → **Pricing** |
 | Add or rename a category (e.g. "Onesies") | Admin → Categories — see [section 4](#4-menu-categories-and-pages) |
@@ -223,6 +224,17 @@ The import works out the department (boys/girls/men/women/baby), category (from 
 Options: `npm run import:products -- https://other-shop.example --max-images 2 --limit 100 --stock 5 --usd-rate 0`
 
 > Only import products and photos you have permission to sell and reuse, for example from your own store or a supplier that has licensed them to you.
+
+### Products in Excel (import / export)
+
+**Admin → Products → Excel import / export.**
+
+- **Export** downloads your products as an `.xlsx` file: one row per size/colour (SKU) with name, description, department, category, collection, status, UK/US prices and sale prices, age range, featured/bestseller, fabric, care, photos, SKU, size, colour, colour code and stock. There are drop-down lists for department, category, status and Yes/No, and a **Help** sheet explaining every column and listing your categories. **Blank template** gives the same file with no products.
+- **Import** reads an `.xlsx` (or `.csv`) file in that layout. Click **Check file** first: it shows how many products will be added and updated and lists every problem row (e.g. an unknown category or a sale price above the price) — nothing is saved yet. Then click **Import**; it runs in the background with a progress bar. Products with a problem are left out; everything else is saved.
+- Rows are matched to products by **web address** (the export's first column); rows without one add new products (columns marked * are required for those). A product's details can be on just one of its rows.
+- Sizes are matched by SKU, or else by size + colour. Sizes not in the file are kept — remove sizes or delete products on the product's page. Empty SKUs get new unique ones (`FR-<NAME>-1`, …).
+- Delete a column to leave it unchanged: e.g. a sheet with just *Web address*, *SKU* and *Stock* updates stock only. An empty cell in a column you keep clears that detail (an empty sale price ends the sale), except required details, photos and stock, which stay as they are.
+- **Photos**: addresses separated by `|`. Addresses from an export (`/uploads/…`, with any Adjust framing) are kept; `https://…` links are downloaded into the shop. Add `(Colour)` after a photo for a colour's own photo, e.g. `https://…/red.jpg (Red)`. An empty Photos cell keeps the current photos.
 
 ---
 
@@ -367,7 +379,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `login/page.tsx` | Staff sign-in |
 | `(panel)/layout.tsx` | Admin sidebar menu; checks the user is signed in and which sections their role can see |
 | `(panel)/page.tsx` | Dashboard: sales and orders that need attention |
-| `(panel)/products/…` | Product list, new product, edit product |
+| `(panel)/products/…` | Product list, new product, edit product, Excel import / export (`products/excel`) |
 | `(panel)/pricing/page.tsx` | Edit all prices on one page, bulk sales |
 | `(panel)/categories/page.tsx` | Add, rename and delete categories |
 | `(panel)/discounts/page.tsx` | Discount codes |
@@ -393,6 +405,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `api/stock/route.ts` | Live stock for a size/colour |
 | `api/products/by-slug/route.ts` | Product details for the wishlist page |
 | `api/admin/upload/route.ts` | Photo uploads from the admin (checks the file really is an image) |
+| `api/admin/products/excel/route.ts` · `…/excel/import/route.ts` | Excel export download; Excel import check, start and progress |
 | `uploads/[name]/route.ts` | Serves uploaded photos at `/uploads/…` |
 | `layout.tsx` | The outer HTML page, fonts and light/dark mode script |
 | `globals.css` | All styling: colours (design tokens), layout, components, event themes |
@@ -450,6 +463,8 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `blog.ts` / `blog-format.tsx` | Published blog posts (cached), and turning post text into headings, lists, links and photos safely |
 | `shopify-import.ts` | Reads a Shopify shop's product feed and maps its products, prices, sizes and photos to ours |
 | `import-job.ts` | Runs Admin → Import products in the background and reports progress |
+| `product-sheet.ts` | Products ⇄ Excel: the columns, building the export file, reading a sheet and checking each row |
+| `sheet-import-job.ts` | Saves a checked Excel import in the background (downloads photo links) and reports progress |
 | `customer.ts` | Customer accounts: who is signed in, their Stripe customer and saved cards |
 | `photos.ts` | Picks which product photos to show for the chosen colour |
 | `uploads.ts` | Where uploads are stored; image type checks |
@@ -468,6 +483,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `checkout-schema.test.ts` | Checkout validation |
 | `session.test.ts` | Admin and customer login tokens |
 | `product-import.integration.test.ts` | Admin → Import products with a fake shop: new products, photos, re-runs, bad addresses |
+| `product-sheet.test.ts` | Excel import/export: reading sheets and CSV, every kind of problem row, and export → edit → import into the database |
 | `blog-format.test.tsx` | Blog formatting, and that posts can't inject scripts |
 | `catalog-cache.test.ts` | Catalogue search and filters, and the memory cache |
 | `photos.test.ts` | Photos per colour: which photos show for each colour |

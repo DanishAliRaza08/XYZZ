@@ -21,6 +21,9 @@ export default async function ImportPage() {
         Products already in your shop are left as they are, so you can run the same import again later to add new arrivals.
         Only import products and photos you have permission to sell and reuse.
       </p>
+      <p className="muted" style={{ maxWidth: 760, marginTop: 0 }}>
+        Have your products in a spreadsheet instead? Use <Link href="/admin/products/excel">Products → Excel import / export</Link>.
+      </p>
 
       {running && <AutoRefresh seconds={2} />}
 

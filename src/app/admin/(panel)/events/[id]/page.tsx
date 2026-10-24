@@ -45,12 +45,14 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
           heroTitle: e.heroTitle,
           heroSubtitle: e.heroSubtitle ?? "",
           heroImage: e.heroImage ?? "",
+          heroTextPosition: e.heroTextPosition,
           heroCtaLabel: e.heroCtaLabel ?? "",
           heroCtaHref: e.heroCtaHref ?? "",
           collection: e.collection ?? "",
           sectionTitle: e.sectionTitle ?? "",
           accentColor: e.accentColor ?? "",
           decorations: e.decorations,
+          decorSeconds: e.decorSeconds,
           banners: parseBanners(e.banners),
         }}
       />

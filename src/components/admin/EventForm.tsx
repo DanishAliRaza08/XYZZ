@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { saveEvent } from "@/app/admin/actions";
+import { HERO_TEXT_POSITIONS } from "@/lib/hero";
+import { focusStyle, parseImage } from "@/lib/image-focus";
 import { ActionForm } from "./ActionForm";
+import { AdjustButton, ImageField, SizeHint } from "./ImageField";
 
 type Banner = { image: string; title: string; href: string };
 
@@ -20,20 +23,22 @@ export type EventInitial = {
   heroTitle: string;
   heroSubtitle: string;
   heroImage: string;
+  heroTextPosition: string;
   heroCtaLabel: string;
   heroCtaHref: string;
   collection: string;
   sectionTitle: string;
   accentColor: string;
   decorations: boolean;
+  decorSeconds: number;
   banners: Banner[];
 };
 
 export const EMPTY_EVENT: EventInitial = {
   name: "", theme: "HALLOWEEN", active: false, startsAt: "", endsAt: "",
   barText: "", barLinkLabel: "", barLinkHref: "",
-  heroEyebrow: "", heroTitle: "", heroSubtitle: "", heroImage: "", heroCtaLabel: "", heroCtaHref: "",
-  collection: "", sectionTitle: "", accentColor: "", decorations: true, banners: [],
+  heroEyebrow: "", heroTitle: "", heroSubtitle: "", heroImage: "", heroTextPosition: "left", heroCtaLabel: "", heroCtaHref: "",
+  collection: "", sectionTitle: "", accentColor: "", decorations: true, decorSeconds: 80, banners: [],
 };
 
 async function uploadImage(file: File): Promise<string> {
@@ -46,7 +51,6 @@ async function uploadImage(file: File): Promise<string> {
 }
 
 export function EventForm({ initial, themes }: { initial: EventInitial; themes: { value: string; label: string }[] }) {
-  const [heroImage, setHeroImage] = useState(initial.heroImage);
   const [banners, setBanners] = useState<Banner[]>(initial.banners);
   const [accent, setAccent] = useState(initial.accentColor);
   const [busy, setBusy] = useState(false);
@@ -75,7 +79,6 @@ export function EventForm({ initial, themes }: { initial: EventInitial; themes: 
   return (
     <ActionForm action={saveEvent} submitLabel={initial.id ? "Save event" : "Create event"}>
       {initial.id && <input type="hidden" name="id" value={initial.id} />}
-      <input type="hidden" name="heroImage" value={heroImage} />
       <input type="hidden" name="banners" value={JSON.stringify(banners.filter((b) => b.image))} />
       <input type="hidden" name="accentColor" value={accent} />
 
@@ -105,6 +108,11 @@ export function EventForm({ initial, themes }: { initial: EventInitial; themes: 
         <div className="row">
           <label className="checkbox"><input type="checkbox" name="active" defaultChecked={initial.active} /> Switched on</label>
           <label className="checkbox"><input type="checkbox" name="decorations" defaultChecked={initial.decorations} /> Falling bats / snow animation</label>
+          <label className="row small" style={{ gap: 8 }}>
+            Stop falling after
+            <input type="number" name="decorSeconds" className="input" min={0} max={3600} defaultValue={initial.decorSeconds} style={{ width: 90 }} aria-label="Seconds the decorations fall" />
+            seconds <span className="muted">(0 = keep falling)</span>
+          </label>
         </div>
         <p className="muted small">
           The event shows on the website while it is switched on <strong>and</strong> today is between the start and end dates (leave dates empty to run
@@ -132,20 +140,13 @@ export function EventForm({ initial, themes }: { initial: EventInitial; themes: 
           {f("heroCtaLabel", "Button label", { maxLength: 40, placeholder: "Shop the Halloween edit" })}
           {f("heroCtaHref", "Button link", { placeholder: "/search?q=Halloween" })}
         </div>
-        <div className="field">
-          <label>Banner picture (optional — without one, a themed illustration is shown)</label>
-          {heroImage && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={heroImage} alt="" style={{ width: "100%", maxWidth: 480, aspectRatio: "16/7", objectFit: "cover", borderRadius: 6, background: "var(--surface-2)" }} />
-          )}
-          <div className="row">
-            <label className="btn btn-sm btn-outline" style={{ cursor: "pointer" }}>
-              {busy ? "Uploading…" : heroImage ? "Replace picture" : "Upload picture"}
-              <input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => runUpload(e.target.files, setHeroImage)} />
-            </label>
-            {heroImage && <button type="button" className="btn btn-sm btn-ghost" onClick={() => setHeroImage("")}>Remove</button>}
-            <input className="input" style={{ flex: 1, minWidth: 200 }} placeholder="…or paste https:// or /images/… path" value={heroImage} onChange={(e) => setHeroImage(e.target.value.trim())} aria-label="Banner picture URL" />
-          </div>
+        <ImageField name="heroImage" initial={initial.heroImage} kind="hero" label="Banner picture (optional — without one, a themed illustration is shown)" />
+        <div className="field" style={{ maxWidth: 420 }}>
+          <label htmlFor="heroTextPosition">Text on the picture</label>
+          <select id="heroTextPosition" name="heroTextPosition" className="select" defaultValue={initial.heroTextPosition}>
+            {HERO_TEXT_POSITIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </select>
+          <span className="muted small">If your picture already has writing on it (like a poster), choose “Picture only” so the texts don&apos;t overlap. The whole banner then links to the button link.</span>
         </div>
       </section>
 
@@ -159,15 +160,17 @@ export function EventForm({ initial, themes }: { initial: EventInitial; themes: 
 
         <h4 style={{ margin: "8px 0 0" }}>Promo pictures</h4>
         <p className="muted small">Upload pictures (e.g. costumes, Christmas jumpers, gift ideas). Each can have a caption and link.</p>
+        <SizeHint kind="tile" />
         <div className="event-banners">
           {banners.map((b, i) => (
             <div key={b.image + i} className="stack" style={{ gap: 6 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={b.image} alt="" style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", borderRadius: 6, background: "var(--surface-2)" }} />
+              <img src={parseImage(b.image).src} alt="" style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", borderRadius: 6, background: "var(--surface-2)", ...focusStyle(parseImage(b.image)) }} />
               <input className="input" placeholder="Caption" value={b.title} maxLength={80} onChange={(e) => updateBanner(i, { title: e.target.value })} aria-label="Caption" />
               <input className="input" placeholder="Link, e.g. /shop/girls" value={b.href} onChange={(e) => updateBanner(i, { href: e.target.value.trim() })} aria-label="Link" />
               <div className="row" style={{ gap: 2 }}>
                 <button type="button" className="btn btn-sm btn-ghost" disabled={i === 0} onClick={() => setBanners((bs) => { const n = [...bs]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; })} aria-label="Move earlier">←</button>
+                <AdjustButton value={b.image} kind="tile" onChange={(image) => updateBanner(i, { image })} />
                 <button type="button" className="btn btn-sm btn-ghost" onClick={() => setBanners((bs) => bs.filter((_, j) => j !== i))}>Remove</button>
               </div>
             </div>

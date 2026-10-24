@@ -8,6 +8,7 @@ export type SiteSettings = {
   heroTitle: string;
   heroSubtitle: string;
   heroImage: string;
+  heroTextPosition: string; // left | center | right | hidden (src/lib/hero.ts)
   heroCtaLabel: string;
   heroCtaHref: string;
   whatsappNumber: string;
@@ -31,6 +32,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   heroTitle: "Dressed for every occasion",
   heroSubtitle: "Considered occasionwear and everyday pieces for women and children — designed in Britain.",
   heroImage: "",
+  heroTextPosition: "left",
   heroCtaLabel: "Shop new arrivals",
   heroCtaHref: "/shop/new-arrivals",
   whatsappNumber: process.env.SUPPORT_WHATSAPP_NUMBER ?? "",

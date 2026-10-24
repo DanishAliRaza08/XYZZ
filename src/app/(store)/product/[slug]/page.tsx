@@ -9,6 +9,7 @@ import { formatMoney } from "@/lib/money";
 import { resolvePrice } from "@/lib/pricing";
 import { getSettings } from "@/lib/settings";
 import { siteUrl } from "@/lib/stripe";
+import { parseImage } from "@/lib/image-focus";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -19,7 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: product.name,
     description: product.description.slice(0, 160),
     alternates: { canonical: `/product/${product.slug}` },
-    openGraph: { title: product.name, description: product.description.slice(0, 160), images: product.images[0] ? [product.images[0].url] : undefined },
+    openGraph: { title: product.name, description: product.description.slice(0, 160), images: product.images[0] ? [parseImage(product.images[0].url).src] : undefined },
   };
 }
 
@@ -41,7 +42,7 @@ export default async function ProductPage({ params }: Props) {
     name: product.name,
     description: product.description,
     sku: product.variants[0]?.sku,
-    image: product.images.map((i) => i.url),
+    image: product.images.map((i) => parseImage(i.url).src),
     brand: { "@type": "Brand", name: "Fashion Rockstar" },
     offers: price
       ? {

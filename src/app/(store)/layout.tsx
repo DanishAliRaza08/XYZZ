@@ -34,7 +34,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
           linkHref={event.barLinkHref}
         />
       )}
-      {event?.decorations && <EventDecor theme={event.theme} />}
+      {event?.decorations && <EventDecor theme={event.theme} seconds={event.decorSeconds} visitKey={`${event.id}:${event.updatedAt.getTime()}`} />}
       {settings.announcement && <div className="announcement">{settings.announcement}</div>}
       <header className="site-header">
         <div className="container header-inner" style={{ position: "relative" }}>

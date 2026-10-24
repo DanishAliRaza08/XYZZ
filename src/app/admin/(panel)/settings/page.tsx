@@ -1,6 +1,8 @@
 import { updateSettings } from "../../actions";
 import { ActionForm } from "@/components/admin/ActionForm";
 import { DepartmentTileFields } from "@/components/admin/DepartmentTileFields";
+import { ImageField } from "@/components/admin/ImageField";
+import { HERO_TEXT_POSITIONS } from "@/lib/hero";
 import { requireAdminPage } from "@/lib/auth";
 import { toInputValue } from "@/lib/money";
 import { homeTiles } from "@/lib/navigation";
@@ -33,16 +35,24 @@ export default async function SettingsAdmin() {
             {f("heroTitle", "Hero title", s.heroTitle)}
           </div>
           {f("heroSubtitle", "Hero text", s.heroSubtitle)}
-          <div className="grid-3">
-            {f("heroImage", "Hero image (https://… or /hero-img.jpg from the public folder)", s.heroImage)}
+          <div className="grid-2">
             {f("heroCtaLabel", "Button label", s.heroCtaLabel)}
             {f("heroCtaHref", "Button link", s.heroCtaHref, { placeholder: "/shop/new-arrivals" })}
           </div>
+          <ImageField name="heroImage" initial={s.heroImage} kind="hero" label="Banner picture (optional — without one, a simple illustration is shown)" />
+          <div className="field" style={{ maxWidth: 420 }}>
+            <label htmlFor="heroTextPosition">Text on the picture</label>
+            <select id="heroTextPosition" name="heroTextPosition" className="select" defaultValue={s.heroTextPosition}>
+              {HERO_TEXT_POSITIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+            </select>
+            <span className="muted small">If your picture already has writing on it, choose “Picture only” so the texts don&apos;t overlap. The whole banner then links to the button link.</span>
+          </div>
+          <p className="muted small">While a seasonal event is live, its own banner (Admin → Seasonal events) is shown instead of this one.</p>
         </section>
         <section className="panel stack">
           <h3>Shop by department tiles</h3>
           <p className="muted small">
-            The picture cards on the homepage. Upload your own photo (JPG, PNG or WebP, up to 5MB — a 4:3 landscape photo looks best) and change the text or
+            The picture cards on the homepage. Upload your own photo and use Adjust to choose which part shows, and change the text or
             button. Leave a field empty to use the default. To add or remove tiles, see README → “Menu, categories and pages”.
           </p>
           <DepartmentTileFields

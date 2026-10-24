@@ -5,6 +5,7 @@ import { ShopImage } from "@/components/ShopImage";
 import { formatPostDate, getPublishedPost, getPublishedPosts } from "@/lib/blog";
 import { autoExcerpt, readingMinutes, renderBlog } from "@/lib/blog-format";
 import { siteUrl } from "@/lib/stripe";
+import { parseImage } from "@/lib/image-focus";
 
 type Props = { params: Promise<{ slug: string }> };
 export const dynamic = "force-dynamic";
@@ -17,13 +18,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: post.title,
     description,
     alternates: { canonical: `/blog/${post.slug}` },
-    openGraph: { type: "article", title: post.title, description, images: post.coverImage ? [post.coverImage] : undefined },
+    openGraph: { type: "article", title: post.title, description, images: post.coverImage ? [parseImage(post.coverImage).src] : undefined },
   };
 }
 
 export default async function BlogPostPage({ params }: Props) {
   const post = await getPublishedPost((await params).slug);
   if (!post) notFound();
+  const cover = post.coverImage ? parseImage(post.coverImage).src : "";
   const more = (await getPublishedPosts()).filter((p) => p.id !== post.id).slice(0, 3);
   const jsonLd = {
     "@context": "https://schema.org",
@@ -34,7 +36,7 @@ export default async function BlogPostPage({ params }: Props) {
     dateModified: post.updatedAt.toISOString(),
     author: { "@type": "Person", name: post.author || "Fashion Rockstar" },
     publisher: { "@type": "Organization", name: "Fashion Rockstar" },
-    image: post.coverImage ? [post.coverImage.startsWith("/") ? `${siteUrl()}${post.coverImage}` : post.coverImage] : undefined,
+    image: post.coverImage ? [cover.startsWith("/") ? `${siteUrl()}${cover}` : cover] : undefined,
     mainEntityOfPage: `${siteUrl()}/blog/${post.slug}`,
   };
 

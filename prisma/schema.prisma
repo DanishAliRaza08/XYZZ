@@ -294,30 +294,33 @@ enum EventTheme {
 // Seasonal takeovers (Halloween, Christmas, …). While an event is live, the storefront shows its
 // bar at the top, switches to the event's colour theme and uses its homepage content.
 model SeasonalEvent {
-  id           String     @id @default(cuid())
-  name         String
-  theme        EventTheme @default(CUSTOM)
-  active       Boolean    @default(false)
-  startsAt     DateTime? // null = live as soon as it's switched on
-  endsAt       DateTime? // null = runs until switched off
-  barText      String     @db.VarChar(255)
-  barLinkLabel String?
-  barLinkHref  String?    @db.VarChar(512)
-  heroEyebrow  String?
-  heroTitle    String
-  heroSubtitle String?    @db.Text
-  heroImage    String?    @db.VarChar(512)
-  heroCtaLabel String?
-  heroCtaHref  String?    @db.VarChar(512)
+  id               String     @id @default(cuid())
+  name             String
+  theme            EventTheme @default(CUSTOM)
+  active           Boolean    @default(false)
+  startsAt         DateTime? // null = live as soon as it's switched on
+  endsAt           DateTime? // null = runs until switched off
+  barText          String     @db.VarChar(255)
+  barLinkLabel     String?
+  barLinkHref      String?    @db.VarChar(512)
+  heroEyebrow      String?
+  heroTitle        String
+  heroSubtitle     String?    @db.Text
+  heroImage        String?    @db.VarChar(512)
+  // Where the banner text sits over the picture: left, center, right, or hidden (picture already has its own text)
+  heroTextPosition String     @default("left") @db.VarChar(10)
+  heroCtaLabel     String?
+  heroCtaHref      String?    @db.VarChar(512)
   // Products whose "collection" equals this are shown in the event's shop section on the homepage.
-  collection   String?
-  sectionTitle String?
-  accentColor  String? // optional #rrggbb override of the theme's accent colour
-  decorations  Boolean    @default(true) // falling bats / snow
+  collection       String?
+  sectionTitle     String?
+  accentColor      String? // optional #rrggbb override of the theme's accent colour
+  decorations      Boolean    @default(true) // falling bats / snow
+  decorSeconds     Int        @default(80) // how long the decorations fall on each visit; 0 = keep falling
   // Promo tiles: [{ "image": "/uploads/…", "title": "…", "href": "/…" }]
-  banners      Json       @default("[]")
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  banners          Json       @default("[]")
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   @@index([active, startsAt])
 }

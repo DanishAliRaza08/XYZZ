@@ -8,6 +8,7 @@ import { z } from "zod";
 import type { AdminRole, Department, EventTheme, OrderStatus, ProductStatus } from "@prisma/client";
 import { audit, requireAdminPage } from "@/lib/auth";
 import { invalidateStoreCache } from "@/lib/cache";
+import { heroTextPosition } from "@/lib/hero";
 import { startImport } from "@/lib/import-job";
 import { normaliseSource } from "@/lib/shopify-import";
 import { slugify } from "@/lib/catalog";
@@ -497,6 +498,7 @@ export async function updateSettings(_: FormState, fd: FormData): Promise<FormSt
     heroTitle: str(fd, "heroTitle").slice(0, 120) || current.heroTitle,
     heroSubtitle: str(fd, "heroSubtitle").slice(0, 300),
     heroImage,
+    heroTextPosition: heroTextPosition(str(fd, "heroTextPosition")),
     heroCtaLabel: str(fd, "heroCtaLabel").slice(0, 40),
     heroCtaHref: heroCtaHref || "/shop/new-arrivals",
     whatsappNumber: whatsapp,
@@ -572,12 +574,15 @@ export async function saveEvent(_: FormState, fd: FormData): Promise<FormState> 
     heroTitle,
     heroSubtitle: optStr(fd, "heroSubtitle")?.slice(0, 300) ?? null,
     heroImage: heroImage || null,
+    heroTextPosition: heroTextPosition(str(fd, "heroTextPosition")),
     heroCtaLabel: optStr(fd, "heroCtaLabel")?.slice(0, 40) ?? null,
     heroCtaHref: optStr(fd, "heroCtaHref"),
     collection: optStr(fd, "collection")?.slice(0, 80) ?? null,
     sectionTitle: optStr(fd, "sectionTitle")?.slice(0, 80) ?? null,
     accentColor: accentColor || null,
     decorations: fd.get("decorations") === "on",
+    // How long the decorations fall on each visit (0 = keep falling); empty or invalid = the 80-second default.
+    decorSeconds: str(fd, "decorSeconds") && Number.isFinite(Number(str(fd, "decorSeconds"))) ? Math.min(3600, Math.max(0, Math.round(Number(str(fd, "decorSeconds"))))) : 80,
     banners,
   };
   const saved = id ? await prisma.seasonalEvent.update({ where: { id }, data }) : await prisma.seasonalEvent.create({ data });

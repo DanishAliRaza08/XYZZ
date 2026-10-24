@@ -213,7 +213,21 @@ p { margin: 0 0 1em; }
 .hero-content { position: relative; padding: clamp(36px, 8vw, 96px) 0; max-width: 620px; }
 .hero.has-image .hero-content { color: #fff; text-shadow: 0 1px 18px rgba(0,0,0,0.35); }
 .hero.has-image .hero-content .eyebrow { color: #f3eee6; }
-.hero.has-image::before { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(0,0,0,0.5), transparent 60%); z-index: 1; }
+/* A shade behind the banner text so it stays readable on any picture, on the side the text is on (Admin → "Text on the picture"). */
+.hero.has-image::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(0deg, rgba(0,0,0,0.55), transparent 55%), linear-gradient(90deg, rgba(0,0,0,0.6), rgba(0,0,0,0.25) 45%, transparent 70%); }
+.hero.has-image.hero-text-right::before { background: linear-gradient(0deg, rgba(0,0,0,0.55), transparent 55%), linear-gradient(270deg, rgba(0,0,0,0.6), rgba(0,0,0,0.25) 45%, transparent 70%); }
+.hero.has-image.hero-text-center::before { background: linear-gradient(0deg, rgba(0,0,0,0.55), rgba(0,0,0,0.3) 60%, rgba(0,0,0,0.2)); }
+.hero.has-image.hero-text-hidden::before { display: none; }
+/* Picture only: posters with their own text are shown whole — the banner takes the recommended 1920×800 shape. */
+.hero.has-image.hero-text-hidden { min-height: 0; aspect-ratio: 12 / 5; }
+.hero-text-center .hero-content { margin: 0 auto; text-align: center; }
+.hero-text-center .hero-content p { margin-left: auto; margin-right: auto; }
+.hero-text-center .hero-content .row { justify-content: center; }
+.hero-text-right .hero-content { margin-left: auto; text-align: right; }
+.hero-text-right .hero-content p { margin-left: auto; }
+.hero-text-right .hero-content .row { justify-content: flex-end; }
+.hero-link { position: absolute; inset: 0; z-index: 2; }
+.hero-link:focus-visible { outline: 3px solid var(--accent); outline-offset: -6px; }
 .hero.has-image .hero-content { z-index: 2; }
 .hero p { font-size: 1.08rem; max-width: 520px; }
 
@@ -459,7 +473,8 @@ table.table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 .event-banner span { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 18px 16px; color: #fff; font-family: var(--font-serif); font-size: 1.4rem; background: linear-gradient(0deg, rgba(0,0,0,0.6), transparent); }
 .event-banner:hover { text-decoration: none; }
 
-.event-decor { position: fixed; inset: 0; pointer-events: none; z-index: 30; overflow: hidden; }
+.event-decor { position: fixed; inset: 0; pointer-events: none; z-index: 30; overflow: hidden; transition: opacity 1.5s ease; }
+.event-decor-ending { opacity: 0; }
 .event-decor span { position: absolute; top: -40px; opacity: 0.75; animation: event-fall linear infinite; color: var(--event-decor-color, inherit); text-shadow: var(--event-decor-shadow, none); }
 /* More decorations on wider screens, so a big monitor isn't left almost empty. */
 .event-decor span:nth-child(n + 15) { display: none; }

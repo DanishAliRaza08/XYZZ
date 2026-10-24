@@ -7,6 +7,7 @@ import { formatMoney } from "@/lib/money";
 import { homeTiles } from "@/lib/navigation";
 import { getSettings } from "@/lib/settings";
 import { ShopImage } from "@/components/ShopImage";
+import { heroTextPosition } from "@/lib/hero";
 
 const TILE_TINTS = ["#c9a7ad", "#b9c4cf", "#c7c1a6", "#d8c5b5", "#a9b8a8"];
 
@@ -31,6 +32,7 @@ export default async function HomePage() {
         image: event.heroImage && isSafeImage(event.heroImage) ? event.heroImage : "",
         ctaLabel: event.heroCtaLabel || "Shop the edit",
         ctaHref: event.heroCtaHref || event.barLinkHref || "/shop/new-arrivals",
+        textPosition: heroTextPosition(event.heroTextPosition),
       }
     : {
         eyebrow: settings.heroEyebrow,
@@ -39,7 +41,10 @@ export default async function HomePage() {
         image: settings.heroImage,
         ctaLabel: settings.heroCtaLabel || "Shop now",
         ctaHref: settings.heroCtaHref || "/shop/new-arrivals",
+        textPosition: heroTextPosition(settings.heroTextPosition),
       };
+  // "Picture only": the picture carries its own text, so ours is kept for screen readers and search engines only.
+  const pictureOnly = Boolean(hero.image) && hero.textPosition === "hidden";
   const banners = event ? parseBanners(event.banners) : [];
   const eventProducts = event?.collection
     ? (await listProducts({ currency, q: event.collection })).items.filter((p) => p.collection?.toLowerCase() === event.collection!.toLowerCase()).slice(0, 8)
@@ -47,7 +52,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <section className={`hero${hero.image ? " has-image" : ""}`}>
+      <section className={`hero${hero.image ? " has-image" : ""} hero-text-${hero.image ? hero.textPosition : "left"}`}>
         {hero.image ? (
           <div className="hero-media">
             <ShopImage src={hero.image} alt="" sizes="100vw" priority />
@@ -55,6 +60,12 @@ export default async function HomePage() {
         ) : (
           <div className="hero-art" data-event={event ? themeSlug(event.theme) : undefined} aria-hidden />
         )}
+        {pictureOnly ? (
+          <Link href={hero.ctaHref} className="hero-link">
+            <h1 className="sr-only">{hero.title}</h1>
+            <span className="sr-only">{hero.ctaLabel}</span>
+          </Link>
+        ) : (
         <div className="container">
           <div className="hero-content">
             {hero.eyebrow && <span className="eyebrow">{hero.eyebrow}</span>}
@@ -66,6 +77,7 @@ export default async function HomePage() {
             </div>
           </div>
         </div>
+        )}
       </section>
 
       {event && (banners.length > 0 || eventProducts.length > 0) && (

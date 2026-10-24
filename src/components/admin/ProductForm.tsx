@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { saveProduct } from "@/app/admin/actions";
+import { focusStyle, parseImage } from "@/lib/image-focus";
 import { ActionForm } from "./ActionForm";
+import { AdjustButton, SizeHint } from "./ImageField";
 
 type VariantRow = { id?: string; sku: string; size: string; colour: string; colourHex: string; stock: number };
 type ImageRow = { url: string; alt: string; colour?: string }; // colour "" = shown for every colour
@@ -161,7 +163,8 @@ export function ProductForm({ categories, initial }: { categories: { id: string;
 
       <section className="panel stack">
         <h3>Photos</h3>
-        <p className="muted small">Upload JPG, PNG or WebP (max 5MB) or paste an image URL. Use only photos you own or are licensed to use. The first photo is the main image.</p>
+        <p className="muted small">Upload JPG, PNG or WebP (max 5MB) or paste an image URL. Use only photos you own or are licensed to use. The first photo is the main image. Use <strong>Adjust</strong> on a photo to choose which part shows in the product tiles.</p>
+        <SizeHint kind="product" />
         <p className="muted small">
           <strong>Photos per colour:</strong> set each photo&apos;s colour to match a variant colour above (e.g. a white skirt photo → &quot;White&quot;).
           When a shopper picks that colour, its photos become the main images. Photos left on &quot;All colours&quot; show for every colour.
@@ -170,11 +173,14 @@ export function ProductForm({ categories, initial }: { categories: { id: string;
           {images.map((img, i) => (
             <div key={img.url + i} style={{ width: 120 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img.url} alt="" style={{ width: 120, height: 150, objectFit: "cover", borderRadius: 4, background: "var(--surface-2)" }} />
+              <div style={{ width: 120, height: 160, overflow: "hidden", borderRadius: 4, background: "var(--surface-2)" }}>
+                <img src={parseImage(img.url).src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", ...focusStyle(parseImage(img.url)) }} />
+              </div>
               <input className="input small" placeholder="Alt text" value={img.alt} onChange={(e) => setImages((imgs) => imgs.map((x, j) => (j === i ? { ...x, alt: e.target.value } : x)))} style={{ minHeight: 30, marginTop: 4 }} aria-label="Image description" />
               <ColourSelect value={img.colour ?? ""} colours={colourNames} onChange={(colour) => setImages((imgs) => imgs.map((x, j) => (j === i ? { ...x, colour } : x)))} label="Photo colour" />
               <div className="row" style={{ gap: 2 }}>
                 <button type="button" className="btn btn-sm btn-ghost" disabled={i === 0} onClick={() => setImages((imgs) => { const n = [...imgs]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; })} aria-label="Move left">←</button>
+                <AdjustButton value={img.url} kind="product" onChange={(url) => setImages((imgs) => imgs.map((x, j) => (j === i ? { ...x, url } : x)))} />
                 <button type="button" className="btn btn-sm btn-ghost" onClick={() => setImages((imgs) => imgs.filter((_, j) => j !== i))}>Remove</button>
               </div>
             </div>

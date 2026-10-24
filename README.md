@@ -75,6 +75,9 @@ Secrets stay on the server. They are never sent to the browser and `.env` is git
 | Task | Where |
 |---|---|
 | Add a product (name, description, prices, sizes/colours/stock, photos) | Admin → Products → **New product** |
+| Choose which part of a picture shows (any uploaded picture) | Click **Adjust** next to the picture → drag it and zoom → Save position. Every upload button also shows the recommended picture size |
+| Banner picture already has its own text (a poster) | Admin → Site settings or Seasonal events → **Text on the picture: Picture only** — the picture is shown whole and links to the button link |
+| How long bats/snow fall | Admin → Seasonal events → the event → **Stop falling after … seconds** (default 80; 0 = keep falling) |
 | Write, edit, publish or delete a blog post | Admin → **Blog** → New post / Edit |
 | Publish, move to draft, archive or delete many products at once | Admin → Products → tick the products (or the box in the header for all) → choose an action |
 | Copy all products from another Shopify shop (e.g. a supplier) | Admin → **Import products** — see [section 6](#6-import-products-from-a-shopify-store) |
@@ -416,6 +419,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `InfoPage.tsx` | Layout for the information/policy pages |
 | `WishlistView.tsx`, `ProductArtClient.tsx`, `Icons.tsx` | Wishlist list, photo placeholder, icons |
 | `admin/ProductForm.tsx` | The product editor (details, prices, variants, photos) |
+| `admin/ImageField.tsx` | Picture upload with recommended size, the Adjust window, and Adjust buttons for photo lists |
 | `admin/BlogForm.tsx` | The blog post editor: toolbar, photo uploads, preview |
 | `admin/EventForm.tsx` | The seasonal event editor |
 | `admin/DepartmentTileFields.tsx` | Picture/text/button fields for the homepage cards in Site settings |
@@ -447,6 +451,8 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `customer.ts` | Customer accounts: who is signed in, their Stripe customer and saved cards |
 | `photos.ts` | Picks which product photos to show for the chosen colour |
 | `uploads.ts` | Where uploads are stored; image type checks |
+| `image-focus.ts` | Picture framing chosen with Adjust (saved as `#fp=x,y,zoom` on the picture address) and the recommended upload sizes |
+| `hero.ts` | Homepage banner text positions (left, centre, right, picture only) |
 | `cache.ts` | Keeps catalogue, menu, settings and events in memory for a minute; cleared on admin saves and paid orders |
 | `rate-limit.ts` | Stops too many requests from one visitor |
 | `currency-server.ts` | Reads the visitor's chosen currency |

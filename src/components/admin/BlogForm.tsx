@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { saveBlogPost } from "@/app/admin/actions";
 import { renderBlog } from "@/lib/blog-format";
 import { ActionForm } from "./ActionForm";
+import { ImageField, SizeHint } from "./ImageField";
 
 export type BlogInitial = {
   id?: string;
@@ -30,7 +31,6 @@ async function uploadImage(file: File): Promise<string> {
 /** The blog post editor: title, cover photo, the post text with a formatting toolbar, and a live preview. */
 export function BlogForm({ initial }: { initial: BlogInitial }) {
   const [content, setContent] = useState(initial.content);
-  const [cover, setCover] = useState(initial.coverImage);
   const [tab, setTab] = useState<"write" | "preview">("write");
   const [busy, setBusy] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -86,7 +86,6 @@ export function BlogForm({ initial }: { initial: BlogInitial }) {
   return (
     <ActionForm action={saveBlogPost} submitLabel={initial.id ? "Save post" : "Create post"}>
       {initial.id && <input type="hidden" name="id" value={initial.id} />}
-      <input type="hidden" name="coverImage" value={cover} />
       <input type="hidden" name="content" value={content} />
 
       <section className="panel stack">
@@ -119,17 +118,7 @@ export function BlogForm({ initial }: { initial: BlogInitial }) {
 
       <section className="panel stack">
         <h3>Cover photo</h3>
-        {cover && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover} alt="" style={{ width: "100%", maxWidth: 480, aspectRatio: "16/9", objectFit: "cover", borderRadius: 6, background: "var(--surface-2)" }} />
-        )}
-        <div className="row">
-          <label className="btn btn-sm btn-outline" style={{ cursor: "pointer" }}>
-            {busy ? "Uploading…" : cover ? "Replace cover photo" : "Upload cover photo"}
-            <input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => upload(e.target.files, (url) => setCover(url))} />
-          </label>
-          {cover && <button type="button" className="btn btn-sm btn-ghost" onClick={() => setCover("")}>Remove</button>}
-        </div>
+        <ImageField name="coverImage" initial={initial.coverImage} kind="blogCover" />
       </section>
 
       <section className="panel stack">
@@ -176,6 +165,7 @@ export function BlogForm({ initial }: { initial: BlogInitial }) {
         <p className="muted small">
           Formatting: <code>## Heading</code> · <code>**bold**</code> · <code>*italic*</code> · <code>[text](https://…)</code> · <code>- list</code> · <code>&gt; quote</code>. Leave an empty line between paragraphs. The toolbar adds these for you.
         </p>
+        <SizeHint kind="blogPhoto" />
         {uploadError && <p className="field-error">{uploadError}</p>}
       </section>
     </ActionForm>

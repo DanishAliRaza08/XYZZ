@@ -17,7 +17,16 @@ export default async function HomePage() {
     listProducts({ currency, sort: "recommended" }),
     listProducts({ currency, collection: "bestsellers" }),
     // The first three collection names among published products (newest first), from the cached catalogue.
-    getCatalog().then(({ products }) => [...new Set(products.map((p) => p.collection).filter((c): c is string => Boolean(c)))].slice(0, 3).map((collection) => ({ collection }))),
+    // The newest three collections, each with a picture: the one set in Admin → Site settings, else a photo of one of its products.
+    getCatalog().then(({ products }) =>
+      [...new Set(products.map((p) => p.collection).filter((c): c is string => Boolean(c)))].slice(0, 3).map((collection) => ({
+        collection,
+        image:
+          settings.collectionImages[collection.toLowerCase()] ??
+          products.find((p) => p.collection === collection && p.images.length)?.images[0].url ??
+          null,
+      })),
+    ),
   ]);
   const featuredItems = featured.items.filter((p) => p.featured).slice(0, 8);
   const shownFeatured = featuredItems.length ? featuredItems : featured.items.slice(0, 8);
@@ -193,7 +202,11 @@ export default async function HomePage() {
             <div className="tiles" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(220px, 1fr))` }}>
               {collections.map((c, i) => (
                 <Link key={c.collection} href={`/search?q=${encodeURIComponent(c.collection ?? "")}`} className="tile" style={{ aspectRatio: "4/3" }}>
-                  <div className="tile-art" style={{ background: `linear-gradient(140deg, ${TILE_TINTS[(i + 2) % 5]}55, ${TILE_TINTS[(i + 2) % 5]})` }} aria-hidden />
+                  {c.image ? (
+                    <ShopImage src={c.image} alt="" sizes="(max-width: 480px) 100vw, (max-width: 900px) 50vw, 33vw" />
+                  ) : (
+                    <div className="tile-art" style={{ background: `linear-gradient(140deg, ${TILE_TINTS[(i + 2) % 5]}55, ${TILE_TINTS[(i + 2) % 5]})` }} aria-hidden />
+                  )}
                   <span className="tile-label">{c.collection}<small>Discover the edit →</small></span>
                 </Link>
               ))}

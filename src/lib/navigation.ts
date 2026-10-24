@@ -355,3 +355,45 @@ export function homeTiles(overrides: Record<string, Partial<{ image: string; tex
     };
   });
 }
+
+// ---------- Placing products in the menu (Admin → Products) ----------
+
+export type Placement = { department?: Department; categorySlug?: string; collection?: string | null };
+
+function filterMatches(f: NavFilter, p: Placement): boolean {
+  if (f.department && p.department !== f.department) return false;
+  const cats = f.categories ?? [];
+  const cols = (f.collections ?? []).map((c) => c.toLowerCase());
+  if (!cats.length && !cols.length) return true;
+  return (p.categorySlug != null && cats.includes(p.categorySlug)) || (p.collection != null && cols.includes(p.collection.toLowerCase()));
+}
+
+/** Every menu section and page a product with this department/category/collection is listed on, e.g. "Girls → Dresses". */
+export function menuPlacesFor(p: Placement): { label: string; href: string }[] {
+  const out: { label: string; href: string }[] = [];
+  for (const section of SECTIONS) {
+    // Section pages with an empty filter (e.g. "More") list everything, so they don't count as a placement.
+    const sectionHasRule = Boolean(section.filter.department || section.filter.categories?.length || section.filter.collections?.length);
+    if (sectionHasRule && filterMatches(section.filter, p)) out.push({ label: `${section.label} (all)`, href: sectionHref(section) });
+    for (const page of sectionPages(section))
+      if (filterMatches(mergeFilter(section.filter, page.filter), p)) out.push({ label: `${section.label} → ${page.label}`, href: sectionHref(section, page) });
+  }
+  return out;
+}
+
+/**
+ * What a product needs to appear on a menu page: its department, one category and/or a collection.
+ * Used by the "Put it in the menu" picker; only fields the page decides are returned.
+ */
+export function placementForPage(sectionSlug: string, pageSlug: string): Placement | null {
+  const section = SECTIONS.find((s) => s.slug === sectionSlug);
+  const page = section && sectionPages(section).find((p) => p.slug === pageSlug);
+  if (!section || !page) return null;
+  const f = mergeFilter(section.filter, page.filter);
+  const out: Placement = {};
+  if (f.department) out.department = f.department;
+  if (f.categories?.length) out.categorySlug = f.categories[0];
+  // A page that lists by collection only (e.g. Festival Special → Halloween) needs the product's collection set.
+  if (!f.categories?.length && f.collections?.length) out.collection = f.collections[0];
+  return out;
+}

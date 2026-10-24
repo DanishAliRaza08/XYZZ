@@ -75,6 +75,8 @@ Secrets stay on the server. They are never sent to the browser and `.env` is git
 | Task | Where |
 |---|---|
 | Add a product (name, description, prices, sizes/colours/stock, photos) | Admin → Products → **New product** |
+| Choose where a product appears in the menu | Admin → Products → the product → **Where it appears in the shop → Put it in the menu** (e.g. Girls → Dresses, then Festival Special → Halloween). "Shows on" lists every menu page it will appear on |
+| Pictures for the homepage "Seasonal edits & occasionwear" tiles | Admin → Site settings → **"Seasonal edits & occasionwear" pictures** (one per collection; without one, a product photo is used) |
 | Choose which part of a picture shows (any uploaded picture) | Click **Adjust** next to the picture → drag it and zoom → Save position. Every upload button also shows the recommended picture size |
 | Banner picture already has its own text (a poster) | Admin → Site settings or Seasonal events → **Text on the picture: Picture only** — the picture is shown whole and links to the button link |
 | How long bats/snow fall | Admin → Seasonal events → the event → **Stop falling after … seconds** (default 80; 0 = keep falling) |

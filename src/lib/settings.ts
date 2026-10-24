@@ -22,6 +22,9 @@ export type SiteSettings = {
   // Admin overrides for the homepage "Shop by department" tiles, keyed by menu section slug
   // (src/lib/navigation.ts). Empty values fall back to the defaults in navigation.ts.
   departmentTiles: Record<string, DepartmentTileOverride>;
+  // Pictures for the homepage "Seasonal edits & occasionwear" tiles, keyed by collection name in lower case.
+  // A collection without one uses a photo of one of its products.
+  collectionImages: Record<string, string>;
 };
 
 export type DepartmentTileOverride = { image: string; text: string; button: string };
@@ -44,6 +47,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   usStoreEnabled: true,
   shipping: DEFAULT_SHIPPING,
   departmentTiles: {},
+  collectionImages: {},
 };
 
 const KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof SiteSettings)[];

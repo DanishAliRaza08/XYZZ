@@ -30,7 +30,7 @@ export default async function EditProduct({ params, searchParams }: { params: Pr
       </div>
       {saved && <div className="alert alert-success">Product created.</div>}
       <ProductForm
-        categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+        categories={categories.map((c) => ({ id: c.id, name: c.name, slug: c.slug }))}
         initial={{
           id: product.id,
           name: product.name,

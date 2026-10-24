@@ -7,10 +7,17 @@ import { requireAdminPage } from "@/lib/auth";
 import { toInputValue } from "@/lib/money";
 import { homeTiles } from "@/lib/navigation";
 import { getSettings } from "@/lib/settings";
+import { prisma } from "@/lib/db";
 
 export default async function SettingsAdmin() {
   await requireAdminPage("settings");
-  const s = await getSettings();
+  const [s, collections] = await Promise.all([
+    getSettings(),
+    // Every collection name used by a product (the homepage shows the newest few).
+    prisma.product
+      .findMany({ where: { collection: { not: null } }, select: { collection: true }, distinct: ["collection"], orderBy: { createdAt: "desc" }, take: 50 })
+      .then((rows) => [...new Map(rows.map((r) => [r.collection!.toLowerCase(), r.collection!])).values()]),
+  ]);
   const f = (name: string, label: string, value: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <div className="field"><label htmlFor={name}>{label}</label><input id={name} name={name} className="input" defaultValue={value} {...props} /></div>
   );
@@ -67,6 +74,25 @@ export default async function SettingsAdmin() {
               button: s.departmentTiles[t.slug]?.button ?? "",
             }))}
           />
+        </section>
+        <section className="panel stack">
+          <h3>“Seasonal edits &amp; occasionwear” pictures</h3>
+          <p className="muted small">
+            The homepage shows a tile for your newest collections (a product&apos;s <em>Collection / edit</em> field, e.g. Halloween). Upload a picture for each
+            one; without a picture the tile uses a photo of one of its products.
+          </p>
+          {collections.length === 0 ? (
+            <p className="muted small">No collections yet — set a product&apos;s Collection / edit field in Admin → Products.</p>
+          ) : (
+            <div className="grid-3">
+              {collections.map((name, i) => (
+                <div key={name}>
+                  <input type="hidden" name={`collectionName_${i}`} value={name} />
+                  <ImageField name={`collectionImage_${i}`} initial={s.collectionImages[name.toLowerCase()] ?? ""} kind="tile" label={name} />
+                </div>
+              ))}
+            </div>
+          )}
         </section>
         <section className="panel stack">
           <h3>Delivery charges</h3>

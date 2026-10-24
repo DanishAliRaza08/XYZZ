@@ -17,7 +17,7 @@ export default async function NewProduct() {
     <div className="stack">
       <Link href="/admin/products" className="small muted">← All products</Link>
       <h1 style={{ fontSize: "2rem" }}>New product</h1>
-      <ProductForm categories={categories.map((c) => ({ id: c.id, name: c.name }))} />
+      <ProductForm categories={categories.map((c) => ({ id: c.id, name: c.name, slug: c.slug }))} />
     </div>
   );
 }

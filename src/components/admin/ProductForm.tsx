@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { saveProduct } from "@/app/admin/actions";
 import { focusStyle, parseImage } from "@/lib/image-focus";
+import { SECTIONS, menuPlacesFor, placementForPage, sectionPages } from "@/lib/navigation";
+import type { Department } from "@prisma/client";
 import { ActionForm } from "./ActionForm";
 import { AdjustButton, SizeHint } from "./ImageField";
 
@@ -39,8 +41,31 @@ const EMPTY: ProductInitial = {
   variants: [], images: [],
 };
 
-export function ProductForm({ categories, initial }: { categories: { id: string; name: string }[]; initial?: ProductInitial }) {
+const COLLECTION_SUGGESTIONS = ["Halloween", "Christmas", "Eid", "Diwali", "World Book Day"];
+
+export function ProductForm({ categories, initial }: { categories: { id: string; name: string; slug: string }[]; initial?: ProductInitial }) {
   const init = initial ?? { ...EMPTY, categoryId: categories[0]?.id ?? "" };
+  // Where the product appears in the menu depends on these three (see src/lib/navigation.ts).
+  const [department, setDepartment] = useState(init.department);
+  const [categoryId, setCategoryId] = useState(init.categoryId);
+  const [collection, setCollection] = useState(init.collection);
+  const [placeNote, setPlaceNote] = useState<string | null>(null);
+  const categorySlug = categories.find((c) => c.id === categoryId)?.slug;
+  const places = menuPlacesFor({ department: department as Department, categorySlug, collection: collection.trim() || null });
+
+  const placeIn = (value: string) => {
+    const [sectionSlug, pageSlug] = value.split("/");
+    const p = placementForPage(sectionSlug, pageSlug);
+    if (!p) return;
+    setPlaceNote(null);
+    if (p.department) setDepartment(p.department);
+    if (p.categorySlug) {
+      const c = categories.find((x) => x.slug === p.categorySlug);
+      if (c) setCategoryId(c.id);
+      else setPlaceNote(`The category for this page (“${p.categorySlug}”) doesn't exist yet — create it in Admin → Categories.`);
+    }
+    if (p.collection) setCollection(p.collection);
+  };
   const [variants, setVariants] = useState<VariantRow[]>(init.variants.length ? init.variants : [{ sku: "", size: "", colour: "", colourHex: "#cccccc", stock: 0 }]);
   const [images, setImages] = useState<ImageRow[]>(init.images);
   const [bulk, setBulk] = useState({ sizes: "", colour: "", hex: "#cccccc", stock: "10", prefix: "" });
@@ -91,33 +116,66 @@ export function ProductForm({ categories, initial }: { categories: { id: string;
           <div className="field"><label htmlFor="slug">URL (optional)</label><input id="slug" name="slug" className="input" defaultValue={init.slug} placeholder="auto from name" maxLength={80} /></div>
         </div>
         <div className="field"><label htmlFor="description">Description *</label><textarea id="description" name="description" className="textarea" defaultValue={init.description} required maxLength={5000} /></div>
-        <div className="grid-3">
-          <div className="field">
-            <label htmlFor="department">Department</label>
-            <select id="department" name="department" className="select" defaultValue={init.department}>
-              <option value="WOMEN">Women</option><option value="GIRLS">Girls</option><option value="BOYS">Boys</option><option value="BABY">Baby & toddler</option><option value="MEN">Men</option>
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="categoryId">Category</label>
-            <select id="categoryId" name="categoryId" className="select" defaultValue={init.categoryId}>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
+        <div className="grid-2">
           <div className="field">
             <label htmlFor="status">Status</label>
             <select id="status" name="status" className="select" defaultValue={init.status}>
               <option value="DRAFT">Draft (hidden)</option><option value="PUBLISHED">Published (live)</option><option value="ARCHIVED">Archived</option>
             </select>
           </div>
-        </div>
-        <div className="grid-2">
-          <div className="field"><label htmlFor="collection">Collection / edit (optional)</label><input id="collection" name="collection" className="input" defaultValue={init.collection} placeholder="e.g. Autumn Occasion Edit" /></div>
           <div className="field"><label htmlFor="ageRange">Age range (children)</label><input id="ageRange" name="ageRange" className="input" defaultValue={init.ageRange} placeholder="e.g. 3–10 years" /></div>
         </div>
         <div className="row">
           <label className="checkbox"><input type="checkbox" name="featured" defaultChecked={init.featured} /> Featured on homepage</label>
           <label className="checkbox"><input type="checkbox" name="bestseller" defaultChecked={init.bestseller} /> Bestseller</label>
+        </div>
+      </section>
+
+      <section className="panel stack">
+        <h3>Where it appears in the shop</h3>
+        <div className="field">
+          <label htmlFor="placeIn">Put it in the menu</label>
+          <select id="placeIn" className="select" value="" onChange={(e) => placeIn(e.target.value)} style={{ maxWidth: 480 }}>
+            <option value="">Choose a menu page, e.g. Girls → Dresses…</option>
+            {SECTIONS.map((sec) => (
+              <optgroup key={sec.slug} label={sec.label}>
+                {sectionPages(sec).map((pg) => <option key={pg.slug} value={`${sec.slug}/${pg.slug}`}>{sec.label} → {pg.label}</option>)}
+              </optgroup>
+            ))}
+          </select>
+          <span className="muted small">Picking a page fills in the department, category and collection below. Then pick a festival page (e.g. Festival Special → Halloween) to show it there too — that only sets the collection.</span>
+        </div>
+        <div className="grid-3">
+          <div className="field">
+            <label htmlFor="department">Department</label>
+            <select id="department" name="department" className="select" value={department} onChange={(e) => setDepartment(e.target.value)}>
+              <option value="WOMEN">Women</option><option value="GIRLS">Girls</option><option value="BOYS">Boys</option><option value="BABY">Baby & toddler</option><option value="MEN">Men</option>
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="categoryId">Category</label>
+            <select id="categoryId" name="categoryId" className="select" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="collection">Collection / edit (optional)</label>
+            <input id="collection" name="collection" className="input" list="collection-suggestions" value={collection} onChange={(e) => setCollection(e.target.value)} placeholder="e.g. Halloween" />
+            <datalist id="collection-suggestions">{COLLECTION_SUGGESTIONS.map((c) => <option key={c} value={c} />)}</datalist>
+          </div>
+        </div>
+        {placeNote && <p className="field-error" style={{ margin: 0 }}>{placeNote}</p>}
+        <div className="small">
+          {places.length ? (
+            <>
+              <strong>Shows on:</strong>{" "}
+              {places.map((pl, i) => (
+                <span key={pl.href}>{i > 0 && " · "}<a href={pl.href} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>{pl.label}</a></span>
+              ))}
+            </>
+          ) : (
+            <span className="field-error">Not on any menu page yet — choose one above (it can still be found by search).</span>
+          )}
         </div>
       </section>
 

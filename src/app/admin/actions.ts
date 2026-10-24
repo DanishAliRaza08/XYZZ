@@ -492,6 +492,13 @@ export async function updateSettings(_: FormState, fd: FormData): Promise<FormSt
     if (tile.image && !isSafeImage(tile.image)) return { error: `${sec.label} tile: the picture must be uploaded or an https:// URL.` };
     if (tile.image || tile.text || tile.button) departmentTiles[sec.slug] = tile;
   }
+  const collectionImages: Record<string, string> = {};
+  for (let i = 0; i < 50 && fd.has(`collectionName_${i}`); i++) {
+    const name = str(fd, `collectionName_${i}`).toLowerCase();
+    const image = str(fd, `collectionImage_${i}`);
+    if (image && !isSafeImage(image)) return { error: `Collection “${name}”: the picture must be uploaded or an https:// URL.` };
+    if (name && image) collectionImages[name] = image;
+  }
   await saveSettings({
     announcement: str(fd, "announcement").slice(0, 200),
     heroEyebrow: str(fd, "heroEyebrow").slice(0, 60),
@@ -509,6 +516,7 @@ export async function updateSettings(_: FormState, fd: FormData): Promise<FormSt
     vatNumber: str(fd, "vatNumber").slice(0, 20),
     usStoreEnabled: fd.get("usStoreEnabled") === "on",
     departmentTiles,
+    collectionImages,
     shipping: {
       GBP: { standard: money("gbpStandard", current.shipping.GBP.standard), express: money("gbpExpress", current.shipping.GBP.express), freeOver: money("gbpFreeOver", current.shipping.GBP.freeOver) },
       USD: { standard: money("usdStandard", current.shipping.USD.standard), express: money("usdExpress", current.shipping.USD.express), freeOver: money("usdFreeOver", current.shipping.USD.freeOver) },

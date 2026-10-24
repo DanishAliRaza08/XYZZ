@@ -37,3 +37,21 @@ describe("menu config (src/lib/navigation.ts)", () => {
     expect(tiles.find((t) => t.slug === "more")!.href).toBe("/shop/more/baby");
   });
 });
+
+describe("placing products in the menu (Admin → Products)", () => {
+  it("lists every menu page a product appears on", async () => {
+    const { menuPlacesFor } = await import("@/lib/navigation");
+    const labels = menuPlacesFor({ department: "GIRLS", categorySlug: "dresses", collection: "Halloween" }).map((p) => p.label);
+    expect(labels).toContain("Girls → Dresses");
+    expect(labels).toContain("Festival Special → Halloween");
+    expect(labels).not.toContain("Boys (all)");
+    expect(menuPlacesFor({ department: "GIRLS", categorySlug: "dresses", collection: null }).map((p) => p.label)).not.toContain("Festival Special → Halloween");
+  });
+  it("works out what a menu page needs", async () => {
+    const { placementForPage } = await import("@/lib/navigation");
+    expect(placementForPage("girls", "dresses")).toEqual({ department: "GIRLS", categorySlug: "dresses" });
+    expect(placementForPage("festival-special", "halloween")).toEqual({ collection: "Halloween" });
+    expect(placementForPage("footwear", "boys")).toEqual({ department: "BOYS", categorySlug: "footwear" });
+    expect(placementForPage("nope", "x")).toBeNull();
+  });
+});

@@ -3,6 +3,7 @@ import type { ListingProduct } from "@/lib/catalog";
 import { formatMoney, type CurrencyCode } from "@/lib/money";
 import { resolvePrice } from "@/lib/pricing";
 import { WishButton } from "./HeaderClient";
+import { ProductCardMedia } from "./ProductCardMedia";
 import { GRID_SIZES, ShopImage } from "./ShopImage";
 
 export function ProductArt({ name, hex, url, alt, priority }: { name: string; hex: string; url?: string | null; alt?: string; priority?: boolean }) {
@@ -41,20 +42,18 @@ export function ProductCard({ product, currency, priority }: { product: ListingP
   const flag = !inStock ? "Out of stock" : price?.compareAt ? "Sale" : isNew ? "New" : product.bestseller ? "Bestseller" : null;
   return (
     <article className="card">
-      <Link href={`/product/${product.slug}`} className="card-media" aria-label={product.name}>
-        {flag && <span className={`card-flag${flag === "Sale" ? " sale" : ""}`}>{flag}</span>}
-        <ProductArt name={product.name} hex={colours[0]?.[1] ?? "#cccccc"} url={product.images[0]?.url} alt={product.images[0]?.alt} priority={priority} />
-      </Link>
-      <WishButton slug={product.slug} name={product.name} />
-      <Link href={`/product/${product.slug}`} className="card-title">{product.name}</Link>
-      <PriceTag product={product} currency={currency} />
-      {colours.length > 1 && (
-        <div className="swatches" aria-label={`${colours.length} colours`}>
-          {colours.slice(0, 6).map(([name, hex]) => (
-            <span key={name} className="swatch" style={{ background: hex }} title={name} />
-          ))}
-        </div>
-      )}
+      <ProductCardMedia
+        slug={product.slug}
+        name={product.name}
+        flag={flag}
+        images={product.images.map((i) => ({ url: i.url, alt: i.alt, colour: i.colour }))}
+        colours={colours}
+        priority={priority}
+      >
+        <WishButton slug={product.slug} name={product.name} />
+        <Link href={`/product/${product.slug}`} className="card-title">{product.name}</Link>
+        <PriceTag product={product} currency={currency} />
+      </ProductCardMedia>
     </article>
   );
 }

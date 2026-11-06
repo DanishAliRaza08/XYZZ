@@ -68,10 +68,10 @@ describe.skipIf(!enabled)("Admin → Import products (database)", () => {
     await prisma.$disconnect();
   });
 
-  const runImport = async () => {
+  const runImport = async (extra: { refreshPhotos?: boolean } = {}) => {
     const { currentImport, startImport } = await import("@/lib/import-job");
     const admin = await prisma.adminUser.findFirst();
-    expect(startImport({ source: "https://shop.example", status: "DRAFT", maxImages: 4, defaultStock: 5, limit: Infinity }, admin?.id ?? "x")).toBeNull();
+    expect(startImport({ source: "https://shop.example", status: "DRAFT", maxImages: 4, defaultStock: 5, limit: Infinity, ...extra }, admin?.id ?? "x")).toBeNull();
     expect(startImport({ source: "https://shop.example", status: "DRAFT", maxImages: 4, defaultStock: 5, limit: Infinity }, "x")).toMatch(/already running/);
     for (let i = 0; i < 100 && currentImport()?.status === "running"; i++) await new Promise((r) => setTimeout(r, 50));
     return currentImport()!;
@@ -97,6 +97,17 @@ describe.skipIf(!enabled)("Admin → Import products (database)", () => {
     const job = await runImport();
     expect(job).toMatchObject({ status: "done", created: 0, existing: 4, skipped: 1 });
     expect((await prisma.product.findUnique({ where: { slug: `${tag}-party-dress-1` } }))?.name).toBe("Renamed in admin");
+  });
+
+  it("can refresh the photos of products already imported, linked to their colours", async () => {
+    // The shop now links its photo to the Red sizes; product 1's photos were saved before photos had colours.
+    feed[0] = product(1, { images: [{ src: "https://cdn.shopify.com/a.jpg", alt: "front", variant_ids: [1, 2] }] });
+    const job = await runImport({ refreshPhotos: true });
+    expect(job).toMatchObject({ status: "done", created: 0, existing: 4 });
+    expect(job.refreshed).toBeGreaterThanOrEqual(1);
+    const p1 = await prisma.product.findUniqueOrThrow({ where: { slug: `${tag}-party-dress-1` }, include: { images: true } });
+    expect(p1.name).toBe("Renamed in admin"); // other edits are kept
+    expect(p1.images.map((i) => i.colour)).toEqual(["Red"]);
   });
 });
 

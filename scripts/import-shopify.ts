@@ -10,7 +10,7 @@
 import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { CATEGORY_NAMES } from "../src/lib/categories";
-import { downloadImage, fetchShopifyProducts, mapShopifyProduct, normaliseSource, type ImportedProduct } from "../src/lib/shopify-import";
+import { downloadImage, fetchShopifyProducts, mapShopifyProduct, normaliseSource, pickPhotos, type ImportedProduct } from "../src/lib/shopify-import";
 
 export { CATEGORY_NAMES };
 export { category, collection, colourHex, department, htmlToText, slugify, type ImportedProduct } from "../src/lib/shopify-import";
@@ -50,12 +50,12 @@ async function main() {
     await rm(dir, { recursive: true, force: true });
     await mkdir(dir, { recursive: true });
     const images: ImportedProduct["images"] = [];
-    for (const [ii, img] of photos.slice(0, MAX_IMAGES).entries()) {
+    for (const [ii, img] of pickPhotos(photos, MAX_IMAGES).entries()) {
       try {
         const { buf, ext } = await downloadImage(img.src, IMAGE_WIDTH);
         const file = `${ii + 1}.${ext}`;
         await writeFile(path.join(dir, file), buf);
-        images.push({ url: `/images/products/${product.slug}/${file}`, alt: img.alt });
+        images.push({ url: `/images/products/${product.slug}/${file}`, alt: img.alt, colour: img.colour });
       } catch (e) {
         console.warn(`  ! image skipped (${img.src}): ${e instanceof Error ? e.message : e}`);
       }

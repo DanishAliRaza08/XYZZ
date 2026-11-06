@@ -11,7 +11,7 @@ import { getSettings } from "@/lib/settings";
 import { siteUrl } from "@/lib/stripe";
 import { parseImage } from "@/lib/image-focus";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = { params: Promise<{ slug: string }>; searchParams?: Promise<{ colour?: string | string[] }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const product = await getProductBySlug((await params).slug);
@@ -24,9 +24,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function ProductPage({ params }: Props) {
+export default async function ProductPage({ params, searchParams }: Props) {
   const product = await getProductBySlug((await params).slug);
   if (!product) notFound();
+  // ?colour=Red (from a product card's colour dots) opens the page on that colour.
+  const asked = (await searchParams)?.colour;
+  const startColour = product.variants.find((v) => v.colour === (Array.isArray(asked) ? asked[0] : asked))?.colour;
   const [currency, settings] = await Promise.all([getCurrency(), getSettings()]);
   const dept = DEPARTMENTS.find((d) => d.value === product.department)!;
   const price = resolvePrice(product, currency);
@@ -67,7 +70,7 @@ export default async function ProductPage({ params }: Props) {
         </ol>
       </nav>
 
-      <ProductColourProvider variants={product.variants.map((v) => ({ colour: v.colour, stock: v.stock }))}>
+      <ProductColourProvider variants={product.variants.map((v) => ({ colour: v.colour, stock: v.stock }))} initialColour={startColour}>
         <div className="pdp">
           <Gallery
             images={product.images.map((i) => ({ url: i.url, alt: i.alt, colour: i.colour }))}

@@ -12,8 +12,9 @@ export type ShopifyProduct = {
   product_type: string;
   tags: string[] | string;
   options: { name: string; position: number }[];
-  variants: { id: number; title: string; sku: string | null; price: string; compare_at_price: string | null; available?: boolean; option1: string | null; option2: string | null; option3: string | null }[];
-  images: { src: string; alt?: string | null }[];
+  variants: { id: number; title: string; sku: string | null; price: string; compare_at_price: string | null; available?: boolean; option1: string | null; option2: string | null; option3: string | null; featured_image?: { src: string } | null }[];
+  // variant_ids: the sizes/colours a photo belongs to (Shopify links photos to variants this way).
+  images: { src: string; alt?: string | null; variant_ids?: number[] }[];
 };
 
 export type ImportedProduct = {
@@ -29,7 +30,7 @@ export type ImportedProduct = {
   salePriceUSD: number | null;
   ageRange: string | null;
   variants: { sku: string; size: string; colour: string; colourHex: string; stock: number }[];
-  images: { url: string; alt: string }[];
+  images: { url: string; alt: string; colour?: string | null }[];
   source: string;
 };
 
@@ -212,7 +213,7 @@ export function mapShopifyProduct(
   opts: MapOptions,
   usedSlugs: Set<string>,
   usedSkus: Set<string>,
-): { product: Omit<ImportedProduct, "images">; photos: { src: string; alt: string }[] } | null {
+): { product: Omit<ImportedProduct, "images">; photos: ImportPhoto[] } | null {
   let slug = slugify(p.handle || p.title) || `product-${p.id}`;
   while (usedSlugs.has(slug)) slug = `${slug}-${p.id}`;
 
@@ -264,6 +265,46 @@ export function mapShopifyProduct(
       variants,
       source: `${opts.source}/products/${p.handle}`,
     },
-    photos: (p.images ?? []).map((img) => ({ src: img.src, alt: img.alt?.trim() || p.title })),
+    photos: photoColours(p, variants.map((v) => v.colour), (v) => opt(v, colourIdx)),
   };
+}
+
+export type ImportPhoto = { src: string; alt: string; colour: string | null };
+
+/**
+ * Which colour each photo shows, so the product page and product cards switch photos when a colour is picked:
+ * from the shop's own link between photos and variants (variant_ids / a variant's featured image), or else
+ * a colour name in the photo's description. null = the photo suits every colour.
+ */
+function photoColours(p: ShopifyProduct, colours: string[], colourOf: (v: ShopifyProduct["variants"][number]) => string | null): ImportPhoto[] {
+  const byVariant = new Map((p.variants ?? []).map((v) => [v.id, colourOf(v)?.slice(0, 40) ?? null]));
+  const known = [...new Set(colours)].filter((c) => c !== "As pictured").sort((a, b) => b.length - a.length);
+  const same = (a: string) => a.split("?")[0].replace(/^https?:/, "");
+  return (p.images ?? []).map((img) => {
+    const linked = new Set<string>();
+    for (const id of img.variant_ids ?? []) {
+      const c = byVariant.get(id);
+      if (c) linked.add(c);
+    }
+    for (const v of p.variants ?? []) if (v.featured_image?.src && same(v.featured_image.src) === same(img.src) && colourOf(v)) linked.add(colourOf(v)!.slice(0, 40));
+    let colour = linked.size === 1 ? [...linked][0] : null;
+    if (!colour && !linked.size && img.alt && known.length > 1) {
+      const alt = ` ${img.alt.toLowerCase()} `;
+      colour = known.find((c) => alt.includes(` ${c.toLowerCase()} `) || alt.includes(` ${c.toLowerCase()},`)) ?? null;
+    }
+    return { src: img.src, alt: img.alt?.trim() || p.title, colour };
+  });
+}
+
+/**
+ * The photos to download: the first `max`, plus the first photo of every colour that isn't covered yet,
+ * so each colour has its own photo when a shopper picks it (at most 20 in all).
+ */
+export function pickPhotos(photos: ImportPhoto[], max: number): ImportPhoto[] {
+  const picked = photos.slice(0, max);
+  for (const ph of photos.slice(max)) {
+    if (picked.length >= 20) break;
+    if (ph.colour && !picked.some((x) => x.colour === ph.colour)) picked.push(ph);
+  }
+  return picked;
 }

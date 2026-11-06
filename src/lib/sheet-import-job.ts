@@ -69,7 +69,7 @@ async function run(job: SheetJob, items: PlannedProduct[], adminId: string) {
       job.processed++;
       try {
         const photos = item.photos && (await localPhotos(job, item, dir, downloaded));
-        await save(item, photos);
+        await withRetry(() => save(item, photos));
         if (item.action === "create") job.created++;
         else job.updated++;
         if (item.action === "create") note(job, `Added "${item.name}"`);
@@ -159,3 +159,16 @@ async function save(item: PlannedProduct, photos: { url: string; colour: string 
   }, { timeout: 30_000 });
 }
 
+
+/** MySQL cancels one of two saves that touch the same rows at once (a deadlock) and asks for a retry: retry up to 3 times. */
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const deadlock = (e as { code?: string }).code === "P2034" || /deadlock|write conflict/i.test(e instanceof Error ? e.message : "");
+      if (!deadlock || attempt >= 3) throw e;
+      await new Promise((r) => setTimeout(r, 200 * attempt));
+    }
+  }
+}

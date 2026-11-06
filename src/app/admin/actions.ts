@@ -123,7 +123,7 @@ export async function startProductImport(_: FormState, fd: FormData): Promise<Fo
   };
   const status: ProductStatus = str(fd, "status") === "DRAFT" ? "DRAFT" : "PUBLISHED";
   const error = startImport(
-    { source, status, maxImages: num("maxImages", 0, 10, 4), defaultStock: num("defaultStock", 0, 10000, 10), limit: num("limit", 1, 10000, Infinity) },
+    { source, status, maxImages: num("maxImages", 0, 10, 4), defaultStock: num("defaultStock", 0, 10000, 10), limit: num("limit", 1, 10000, Infinity), refreshPhotos: fd.get("refreshPhotos") === "on" },
     admin.id,
   );
   if (error) return { error };

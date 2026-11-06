@@ -184,7 +184,8 @@ describe.skipIf(!enabled)("Excel import (database)", () => {
     const plan = planSheetImport(await readProductSheet(buf), await loadSnapshot(), { defaultStatus: "DRAFT" });
     expect(plan.errors).toEqual([]);
     expect(startSheetImport(plan, "test.xlsx", "x")).toBeNull();
-    for (let i = 0; i < 200 && currentSheetImport()?.status === "running"; i++) await new Promise((r) => setTimeout(r, 25));
+    // Up to 20s: the database is slower while the other test files run at the same time.
+    for (let i = 0; i < 800 && currentSheetImport()?.status === "running"; i++) await new Promise((r) => setTimeout(r, 25));
     return { plan, job: currentSheetImport()! };
   }
 
@@ -195,7 +196,7 @@ describe.skipIf(!enabled)("Excel import (database)", () => {
       [`${tag}-kids-tee`, "Kids Tee", "Soft cotton tee.", "Boys", cat.name, 8, "/uploads/x.jpg | /uploads/blue.jpg (blue)", `${tag}-1`, "3-4 Y", "Blue", 3],
       [`${tag}-kids-tee`, "", "", "", "", "", "", `${tag}-2`, "5-6 Y", "Blue", 1],
     ]));
-    expect(job).toMatchObject({ status: "done", created: 1, updated: 0, failed: 0 });
+    expect(job, job.log.join("\n")).toMatchObject({ status: "done", created: 1, updated: 0, failed: 0 });
     const made = await prisma.product.findUniqueOrThrow({ where: { slug: `${tag}-kids-tee` }, include: { variants: { orderBy: { sortOrder: "asc" } }, images: { orderBy: { position: "asc" } }, category: true } });
     expect(made).toMatchObject({ name: "Kids Tee", status: "DRAFT", department: "BOYS", priceGBP: 800 });
     expect(made.variants.map((v) => [v.sku, v.size, v.stock])).toEqual([[`${tag}-1`, "3-4 Y", 3], [`${tag}-2`, "5-6 Y", 1]]);
@@ -219,5 +220,5 @@ describe.skipIf(!enabled)("Excel import (database)", () => {
     expect(after.variants.map((v) => [v.sku, v.size, v.stock])).toEqual([[`${tag}-1`, "3-4 Y", 3], [`${tag}-2`, "5-6 Y", 10], [expect.stringMatching(/^FR-/), "7-8 Y", 0]]);
     expect(after.variants.map((v) => v.id).slice(0, 2)).toEqual(made.variants.map((v) => v.id));
     expect(after.images).toHaveLength(2);
-  });
+  }, 60_000);
 });

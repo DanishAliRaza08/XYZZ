@@ -54,7 +54,12 @@ export default async function ImportPage() {
             <label htmlFor="limit">Only the first … products (optional)</label>
             <input id="limit" name="limit" className="input" type="number" min={1} placeholder="All products" disabled={running} />
           </div>
+          <label className="checkbox">
+            <input type="checkbox" name="refreshPhotos" disabled={running} /> Also refresh the photos of products already imported — downloads them again
+            linked to their colours, so picking a colour shows its photo (prices, names and other edits are kept)
+          </label>
           <p className="muted small">
+            Photos are linked to their colour automatically, and every colour gets at least one photo even beyond the number above.
             The other shop doesn&apos;t share stock numbers, so every available size gets the stock above (sold-out sizes get 0). Departments and
             categories are chosen from each product&apos;s name and tags — check them in <Link href="/admin/products">Products</Link> afterwards.
           </p>
@@ -76,7 +81,7 @@ export default async function ImportPage() {
                 <div style={{ width: `${pct}%`, height: "100%", background: "var(--accent)", transition: "width 0.4s" }} />
               </div>
               <p className="small" style={{ margin: 0 }}>
-                {job.processed} of {job.total} checked · <strong>{job.created} added</strong> · {job.existing} already in shop · {job.skipped} skipped · {job.photos} photos
+                {job.processed} of {job.total} checked · <strong>{job.created} added</strong> · {job.existing} already in shop{job.refreshed ? ` (${job.refreshed} photos refreshed)` : ""} · {job.skipped} skipped · {job.photos} photos
               </p>
             </>
           )}

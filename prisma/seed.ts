@@ -72,7 +72,7 @@ async function importCatalogue() {
         collection: p.collection,
         featured: created < 8,
         variants: { create: p.variants.map((v, i) => ({ ...v, sortOrder: i })) },
-        images: { create: p.images.map((img, i) => ({ url: img.url, alt: img.alt, position: i })) },
+        images: { create: p.images.map((img, i) => ({ url: img.url, alt: img.alt, colour: img.colour ?? null, position: i })) },
       },
     });
     created++;

@@ -284,6 +284,18 @@ p { margin: 0 0 1em; }
 .price .now-sale { color: var(--accent); }
 .swatches { display: flex; gap: 5px; flex-wrap: wrap; }
 .swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--border); display: inline-block; }
+/* Product card colour dots: buttons that show that colour's photo */
+.swatches { align-items: center; }
+.swatch-btn { width: 18px; height: 18px; padding: 0; cursor: pointer; outline-offset: 2px; }
+.swatch-btn:hover, .swatch-btn.selected { outline: 2px solid var(--text); }
+.swatch-btn:focus-visible { outline: 2px solid var(--accent); }
+.swatch-more { font-size: 0.8rem; color: var(--muted); text-decoration: none; padding: 0 2px; }
+.swatch-more:hover { color: var(--text); text-decoration: underline; }
+/* Long filter lists: the rest are behind "Show more" */
+.filter-more > summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); margin-top: 8px; list-style: none; text-decoration: underline; }
+.filter-more > summary::-webkit-details-marker { display: none; }
+.filter-more[open] > summary .when-closed, .filter-more:not([open]) > summary .when-open { display: none; }
+.filter-more > .filter-options { margin-top: 8px; }
 
 /* Placeholder art used when a product has no photography yet */
 .placeholder-art { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }

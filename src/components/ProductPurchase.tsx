@@ -13,9 +13,9 @@ type V = { id: string; size: string; colour: string; colourHex: string; stock: n
 // so picking "White" shows the white photos.
 const ColourContext = createContext<{ colour: string | undefined; setColour: (c: string) => void }>({ colour: undefined, setColour: () => {} });
 
-/** Wraps the product page; starts on the first colour that has stock. */
-export function ProductColourProvider({ variants, children }: { variants: Pick<V, "colour" | "stock">[]; children: React.ReactNode }) {
-  const [colour, setColour] = useState(() => (variants.find((v) => v.stock > 0) ?? variants[0])?.colour);
+/** Wraps the product page; starts on `initialColour` if given, otherwise the first colour that has stock. */
+export function ProductColourProvider({ variants, initialColour, children }: { variants: Pick<V, "colour" | "stock">[]; initialColour?: string; children: React.ReactNode }) {
+  const [colour, setColour] = useState(() => initialColour ?? (variants.find((v) => v.stock > 0) ?? variants[0])?.colour);
   return <ColourContext.Provider value={{ colour, setColour }}>{children}</ColourContext.Provider>;
 }
 

@@ -212,6 +212,8 @@ If two events overlap, the one that started most recently is shown. Switch an ev
 
 **Admin → Import products**: paste the shop's address (e.g. `https://gumandberries.co.uk`), choose Published or Draft, how many photos per product and the stock per size, then press **Start import**. The import runs on the server and the page shows its progress; you can leave the page and come back. Photos are saved with your other uploads (`UPLOAD_DIR`). Products already in the shop are left as they are (including your edits), so running it again later only adds new products. Every size/colour gets a new SKU of its own (`GUM-<shop's product number>-1`, `-2`, …), because shops often repeat SKUs; a product that can't be saved is skipped and listed, without stopping the import. Only Shopify shops have the public product feed this needs.
 
+**Colour photos:** each photo is linked to its colour (from the shop's own link between photos and sizes/colours, or a colour named in the photo's description), so picking a colour on the product page or on a product card shows that colour's photo. Every colour gets at least one photo, even beyond the "photos per product" number. For products imported before this, tick **Also refresh the photos of products already imported** and run the import again: their photos are downloaded again with colours, and prices, names and other edits are kept.
+
 ### From your computer
 
 `npm run import:products` copies a catalogue from a Shopify store's public product feed. By default it uses **https://gumandberries.co.uk**.
@@ -467,6 +469,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `sheet-import-job.ts` | Saves a checked Excel import in the background (downloads photo links) and reports progress |
 | `customer.ts` | Customer accounts: who is signed in, their Stripe customer and saved cards |
 | `photos.ts` | Picks which product photos to show for the chosen colour |
+| `components/ProductCardMedia.tsx` | Product card photo and colour dots (click or hover a dot to see that colour; 4 dots then "+N") |
 | `uploads.ts` | Where uploads are stored; image type checks |
 | `image-focus.ts` | Picture framing chosen with Adjust (saved as `#fp=x,y,zoom` on the picture address) and the recommended upload sizes |
 | `hero.ts` | Homepage banner text positions (left, centre, right, picture only) |

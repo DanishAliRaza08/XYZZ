@@ -78,28 +78,36 @@ export async function Listing(props: {
       {result.facets.sizes.length > 0 && (
         <fieldset>
           <legend>Size</legend>
-          <div className="filter-options">
-            {result.facets.sizes.map((s) => (
+          <ShowMore
+            items={result.facets.sizes}
+            first={SIZES_SHOWN}
+            open={result.facets.sizes.slice(SIZES_SHOWN).some((s) => sizes.includes(s))}
+            label="sizes"
+            render={(s) => (
               <label key={s} className="chip">
                 <input type="checkbox" name="size" value={s} defaultChecked={sizes.includes(s)} />
                 {s}
               </label>
-            ))}
-          </div>
+            )}
+          />
         </fieldset>
       )}
       {result.facets.colours.length > 0 && (
         <fieldset>
           <legend>Colour</legend>
-          <div className="filter-options">
-            {result.facets.colours.map((c) => (
+          <ShowMore
+            items={result.facets.colours}
+            first={COLOURS_SHOWN}
+            open={result.facets.colours.slice(COLOURS_SHOWN).some((c) => colours.includes(c.name))}
+            label="colours"
+            render={(c) => (
               <label key={c.name} className="chip">
                 <input type="checkbox" name="colour" value={c.name} defaultChecked={colours.includes(c.name)} />
                 <span className="swatch" style={{ background: c.hex }} aria-hidden />
                 {c.name}
               </label>
-            ))}
-          </div>
+            )}
+          />
         </fieldset>
       )}
       <fieldset>
@@ -199,5 +207,27 @@ export async function Listing(props: {
         </div>
       </div>
     </div>
+  );
+}
+
+const COLOURS_SHOWN = 8;
+const SIZES_SHOWN = 12;
+
+/** A filter list that shows the first few options and keeps the rest behind "Show N more" (open when one of them is ticked). */
+function ShowMore<T>({ items, first, open, label, render }: { items: T[]; first: number; open: boolean; label: string; render: (item: T) => React.ReactNode }) {
+  const rest = items.slice(first);
+  return (
+    <>
+      <div className="filter-options">{items.slice(0, first).map(render)}</div>
+      {rest.length > 0 && (
+        <details className="filter-more" open={open}>
+          <summary>
+            <span className="when-closed">Show {rest.length} more {label}</span>
+            <span className="when-open">Show fewer {label}</span>
+          </summary>
+          <div className="filter-options">{rest.map(render)}</div>
+        </details>
+      )}
+    </>
   );
 }

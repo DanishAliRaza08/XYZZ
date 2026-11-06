@@ -7,8 +7,9 @@
 //   Filter   = which products a section or page lists. A page's filter is laid over its section's
 //              filter, so a page in "Boys" only has to say { categories: ["tops"] }.
 //
-// To add a page to a dropdown, add an entry to one of the section's `columns[].pages` lists.
-// To add a new menu item, add a new Section to SECTIONS. See README → "Menu, categories and pages".
+// The menu can be edited in Admin → Menu (saved in the database; see getSections in navigation-server.ts).
+// SECTIONS below is the starting menu, used until it's edited there and again after "Reset to the original menu".
+// The functions here take the menu to use as their last argument (default: SECTIONS).
 import type { Department } from "@prisma/client";
 import { CATEGORIES } from "./categories";
 
@@ -313,8 +314,8 @@ export function mergeFilter(base: NavFilter, page?: NavFilter): NavFilter {
 export type ResolvedSectionPath = { section: Section; page?: NavPage; filter: NavFilter };
 
 /** Matches /shop/<section>[/<page>] against the menu. Returns null when the path isn't in the menu. */
-export function resolveSectionPath(slug: string[]): ResolvedSectionPath | null {
-  const section = SECTIONS.find((s) => s.slug === slug[0]);
+export function resolveSectionPath(slug: string[], sections: Section[] = SECTIONS): ResolvedSectionPath | null {
+  const section = sections.find((s) => s.slug === slug[0]);
   if (!section || slug.length > 2) return null;
   if (slug.length === 1) return { section, filter: section.filter };
   const page = sectionPages(section).find((p) => p.slug === slug[1]);
@@ -335,8 +336,8 @@ export type NavItem = {
 export type ResolvedTile = { slug: string; title: string; text: string; href: string; image: string; button: string; links: NavLink[] };
 
 /** The homepage "Shop by department" tiles: navigation.ts defaults with any Admin → Site settings overrides applied. */
-export function homeTiles(overrides: Record<string, Partial<{ image: string; text: string; button: string }>> = {}): ResolvedTile[] {
-  return SECTIONS.filter((s) => s.tile).map((section) => {
+export function homeTiles(overrides: Record<string, Partial<{ image: string; text: string; button: string }>> = {}, sections: Section[] = SECTIONS): ResolvedTile[] {
+  return sections.filter((s) => s.tile).map((section) => {
     const tile = section.tile!;
     const o = overrides[section.slug] ?? {};
     const href = tile.href ?? sectionHref(section);
@@ -369,9 +370,9 @@ function filterMatches(f: NavFilter, p: Placement): boolean {
 }
 
 /** Every menu section and page a product with this department/category/collection is listed on, e.g. "Girls → Dresses". */
-export function menuPlacesFor(p: Placement): { label: string; href: string }[] {
+export function menuPlacesFor(p: Placement, sections: Section[] = SECTIONS): { label: string; href: string }[] {
   const out: { label: string; href: string }[] = [];
-  for (const section of SECTIONS) {
+  for (const section of sections) {
     // Section pages with an empty filter (e.g. "More") list everything, so they don't count as a placement.
     const sectionHasRule = Boolean(section.filter.department || section.filter.categories?.length || section.filter.collections?.length);
     if (sectionHasRule && filterMatches(section.filter, p)) out.push({ label: `${section.label} (all)`, href: sectionHref(section) });
@@ -385,8 +386,8 @@ export function menuPlacesFor(p: Placement): { label: string; href: string }[] {
  * What a product needs to appear on a menu page: its department, one category and/or a collection.
  * Used by the "Put it in the menu" picker; only fields the page decides are returned.
  */
-export function placementForPage(sectionSlug: string, pageSlug: string): Placement | null {
-  const section = SECTIONS.find((s) => s.slug === sectionSlug);
+export function placementForPage(sectionSlug: string, pageSlug: string, sections: Section[] = SECTIONS): Placement | null {
+  const section = sections.find((s) => s.slug === sectionSlug);
   const page = section && sectionPages(section).find((p) => p.slug === pageSlug);
   if (!section || !page) return null;
   const f = mergeFilter(section.filter, page.filter);

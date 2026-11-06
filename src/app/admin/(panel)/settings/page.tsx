@@ -6,6 +6,7 @@ import { HERO_TEXT_POSITIONS } from "@/lib/hero";
 import { requireAdminPage } from "@/lib/auth";
 import { toInputValue } from "@/lib/money";
 import { homeTiles } from "@/lib/navigation";
+import { getSections } from "@/lib/navigation-server";
 import { getSettings } from "@/lib/settings";
 import { prisma } from "@/lib/db";
 
@@ -63,7 +64,7 @@ export default async function SettingsAdmin() {
             button. Leave a field empty to use the default. To add or remove tiles, see README → “Menu, categories and pages”.
           </p>
           <DepartmentTileFields
-            tiles={homeTiles().map((t) => ({
+            tiles={homeTiles({}, await getSections()).map((t) => ({
               slug: t.slug,
               title: t.title,
               defaultImage: t.image,

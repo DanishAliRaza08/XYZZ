@@ -9,6 +9,7 @@ import { COLLECTIONS, DEPARTMENTS } from "@/lib/catalog";
 import { getCurrency } from "@/lib/currency-server";
 import { prisma } from "@/lib/db";
 import { resolveSectionPath, sectionHref, sectionPages, type NavFilter } from "@/lib/navigation";
+import { getSections } from "@/lib/navigation-server";
 
 type Props = { params: Promise<{ slug: string[] }>; searchParams: Promise<SearchParams> };
 
@@ -27,7 +28,7 @@ async function resolve(slug: string[]): Promise<Resolved | null> {
     return { title: COLLECTIONS[key].label, blurb: COLLECTIONS[key].blurb, crumbs: [{ label: COLLECTIONS[key].label }], collection: key };
   }
 
-  const menu = resolveSectionPath(slug);
+  const menu = resolveSectionPath(slug, await getSections());
   if (menu) {
     const { section, page } = menu;
     const subLinks = [

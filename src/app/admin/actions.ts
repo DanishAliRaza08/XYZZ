@@ -17,7 +17,8 @@ import { HEX_COLOUR, isSafeImage, isSitePath, parseBanners } from "@/lib/events"
 import { parseMoney } from "@/lib/money";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { createSessionToken, SESSION_COOKIE, SESSION_TTL_SECONDS } from "@/lib/session";
-import { SECTIONS } from "@/lib/navigation";
+import { MENU_KEY, parseMenu } from "@/lib/menu";
+import { getSections } from "@/lib/navigation-server";
 import { getSettings, saveSettings, type DepartmentTileOverride } from "@/lib/settings";
 
 export type FormState = { error?: string; ok?: string } | undefined;
@@ -380,15 +381,52 @@ export async function saveCategory(_: FormState, fd: FormData): Promise<FormStat
   return { ok: "Category saved." };
 }
 
+/** Deletes a category. One with products needs another category to move them to first (moveTo). */
 export async function deleteCategory(fd: FormData) {
   const admin = await requireAdminPage("products");
   const id = str(fd, "id");
+  const moveTo = optStr(fd, "moveTo");
   const count = await prisma.product.count({ where: { categoryId: id } });
-  if (count === 0) {
-    await prisma.category.delete({ where: { id } });
-    await audit(admin.id, "delete", "Category", id);
+  let message = "Choose a category to move its products to first.";
+  if (count === 0 || (moveTo && moveTo !== id && (await prisma.category.findUnique({ where: { id: moveTo } })))) {
+    const cat = await prisma.$transaction(async (tx) => {
+      if (count) await tx.product.updateMany({ where: { categoryId: id }, data: { categoryId: moveTo! } });
+      return tx.category.delete({ where: { id } });
+    }).catch(() => null);
+    if (cat) {
+      message = `Deleted “${cat.name}”${count ? ` and moved its ${count} product${count === 1 ? "" : "s"}` : ""}.`;
+      await audit(admin.id, "delete", "Category", id, message);
+    } else message = "Couldn't delete the category.";
   }
   refreshStore();
+  redirect(`/admin/categories?done=${encodeURIComponent(message)}`);
+}
+
+// ---------- Menu (Admin → Menu) ----------
+export async function saveMenu(_: FormState, fd: FormData): Promise<FormState> {
+  const admin = await requireAdminPage("settings");
+  let input: unknown;
+  try {
+    input = JSON.parse(str(fd, "menu"));
+  } catch {
+    return { error: "The menu couldn't be read — reload the page and try again." };
+  }
+  const parsed = parseMenu(input);
+  if ("error" in parsed) return { error: parsed.error };
+  const value = JSON.stringify(parsed.sections);
+  await prisma.setting.upsert({ where: { key: MENU_KEY }, create: { key: MENU_KEY, value }, update: { value } });
+  await audit(admin.id, "update", "Menu", undefined, parsed.sections.map((x) => x.label).join(", ").slice(0, 900));
+  refreshStore();
+  revalidatePath("/admin/menu");
+  return { ok: "Menu saved — it's live in the shop now." };
+}
+
+export async function resetMenu() {
+  const admin = await requireAdminPage("settings");
+  await prisma.setting.deleteMany({ where: { key: MENU_KEY } });
+  await audit(admin.id, "reset", "Menu");
+  refreshStore();
+  redirect(`/admin/menu?reset=${Date.now()}`);
 }
 
 // ---------- Orders ----------
@@ -487,7 +525,7 @@ export async function updateSettings(_: FormState, fd: FormData): Promise<FormSt
   // Allow https:// URLs or files in the public/ folder (e.g. /hero-img.jpg), but not protocol-relative //host URLs.
   if (heroImage && !/^(https:\/\/|\/(?!\/))/.test(heroImage)) return { error: "Hero image must be an https:// URL or a path like /hero-img.jpg (file in the public folder)." };
   const departmentTiles: Record<string, DepartmentTileOverride> = {};
-  for (const sec of SECTIONS.filter((x) => x.tile)) {
+  for (const sec of (await getSections()).filter((x) => x.tile)) {
     const tile = { image: str(fd, `tile_${sec.slug}_image`), text: str(fd, `tile_${sec.slug}_text`).slice(0, 160), button: str(fd, `tile_${sec.slug}_button`).slice(0, 40) };
     if (tile.image && !isSafeImage(tile.image)) return { error: `${sec.label} tile: the picture must be uploaded or an https:// URL.` };
     if (tile.image || tile.text || tile.button) departmentTiles[sec.slug] = tile;

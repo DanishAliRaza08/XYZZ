@@ -9,7 +9,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { getCustomer } from "@/lib/customer";
 import { getCurrency } from "@/lib/currency-server";
 import { accentVars, getActiveEvent, themeSlug } from "@/lib/events";
-import { SECTIONS, sectionHref } from "@/lib/navigation";
+import { sectionHref } from "@/lib/navigation";
+import { getSections } from "@/lib/navigation-server";
 import { buildNav } from "@/lib/navigation-server";
 import { getSettings } from "@/lib/settings";
 import { NewsletterForm } from "@/components/NewsletterForm";
@@ -122,7 +123,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
             <div>
               <h4>Shop</h4>
               <ul>
-                {SECTIONS.map((sec) => (
+                {(await getSections()).map((sec) => (
                   <li key={sec.slug}><Link href={sectionHref(sec)}>{sec.label}</Link></li>
                 ))}
                 <li><Link href="/shop/sale">Sale</Link></li>

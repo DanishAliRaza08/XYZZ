@@ -12,7 +12,10 @@ export default async function AdminBlogPage() {
     <div className="stack">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <h1 style={{ margin: 0 }}>Blog</h1>
-        <Link href="/admin/blog/new" className="btn">New post</Link>
+        <div className="row" style={{ gap: 8 }}>
+          <Link href="/admin/blog/upload" className="btn btn-outline">Upload several posts</Link>
+          <Link href="/admin/blog/new" className="btn">New post</Link>
+        </div>
       </div>
       <p className="muted">Write posts for <Link href="/blog" style={{ textDecoration: "underline" }}>your blog</Link>. Drafts are only visible here; published posts appear on /blog straight away.</p>
       {posts.length === 0 ? (

@@ -2,7 +2,8 @@
 import type { MetadataRoute } from "next";
 import { DEPARTMENTS } from "@/lib/catalog";
 import { prisma } from "@/lib/db";
-import { SECTIONS, sectionHref, sectionPages } from "@/lib/navigation";
+import { sectionHref, sectionPages } from "@/lib/navigation";
+import { getSections } from "@/lib/navigation-server";
 import { siteUrl } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     prisma.blogPost.findMany({ where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } }),
   ]);
   const staticPaths = ["", "/shop/new-arrivals", "/shop/bestsellers", "/shop/sale", "/delivery-returns", "/size-guide", "/faq", "/contact", "/about", "/blog", "/privacy", "/terms", "/cookies"];
-  const menuPaths = SECTIONS.flatMap((s) => [sectionHref(s), ...sectionPages(s).map((p) => sectionHref(s, p))]);
+  const menuPaths = (await getSections()).flatMap((s) => [sectionHref(s), ...sectionPages(s).map((p) => sectionHref(s, p))]);
   const categoryPaths = cats.map((c) => `/shop/${DEPARTMENTS.find((d) => d.value === c.department)!.slug}/${c.category.slug}`);
   return [
     ...[...new Set([...staticPaths, ...menuPaths, ...categoryPaths])].map((p) => ({ url: `${base}${p}` })),

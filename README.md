@@ -22,7 +22,7 @@ See [`docs/PLAN.md`](docs/PLAN.md) for the research, architecture, compliance ch
 
 - **Storefront** — homepage, a menu with dropdowns (Boys, Girls, Men, Women, School & Stationery, Festival Special, Footwear, More, Sale), category pages with filters, search, product pages, wishlist, bag, guest checkout, order tracking and policy pages.
 - **Customer accounts (optional)** — customers can create an account (person icon in the header) to see their past orders, have their delivery address filled in at checkout and **save cards** for next time. Guest checkout still works without an account.
-- **Blog** — write, edit and publish posts in Admin → Blog (formatting toolbar, cover photo, photos inside posts, live preview). Posts appear at `/blog`, in the menu, the footer and the sitemap.
+- **Blog** — write, edit and publish posts in Admin → Blog (formatting toolbar, cover photo, photos inside posts, live preview). Posts appear at `/blog`, in the menu, the footer and the sitemap. **Upload several posts** turns Word documents (.docx — first heading = title, first picture = cover photo), text/Markdown files and spreadsheets (one post per row) into drafts in one go.
 - **Photos per colour** — tag each product photo with a colour (e.g. a white skirt photo → "White"). When a shopper picks White, the white photos become the main images, and the bag shows the white photo too.
 - **Shop by department** — picture cards on the homepage with a description, quick links and a button for each department. Change the picture, text and button in Admin → Site settings.
 - **Light and dark mode** — follows the visitor's device setting, with a toggle in the header that is remembered.
@@ -81,6 +81,8 @@ Secrets stay on the server. They are never sent to the browser and `.env` is git
 | Banner picture already has its own text (a poster) | Admin → Site settings or Seasonal events → **Text on the picture: Picture only** — the picture is shown whole and links to the button link |
 | How long bats/snow fall | Admin → Seasonal events → the event → **Stop falling after … seconds** (default 80; 0 = keep falling) |
 | Write, edit, publish or delete a blog post | Admin → **Blog** → New post / Edit |
+| Upload many blog posts at once (Word, text or a spreadsheet) as drafts | Admin → **Blog** → **Upload several posts** (instructions are on the page) |
+| Add, rename, reorder or remove menu items and their pages | Admin → **Menu** |
 | Publish, move to draft, archive or delete many products at once | Admin → Products → tick the products (or the box in the header for all) → choose an action |
 | Copy all products from another Shopify shop (e.g. a supplier) | Admin → **Import products** — see [section 6](#6-import-products-from-a-shopify-store) |
 | Export products to Excel, or add/update many products from a spreadsheet | Admin → Products → **Excel import / export** — see [Products in Excel](#products-in-excel-import--export) |
@@ -114,7 +116,11 @@ Secrets stay on the server. They are never sent to the browser and `.env` is git
 
 ## 4. Menu, categories and pages
 
-The whole menu — every top item, its dropdown, the pages behind each link and the homepage "Shop by department" cards — is defined in **one file: [`src/lib/navigation.ts`](src/lib/navigation.ts)**. The categories it links to are listed in [`src/lib/categories.ts`](src/lib/categories.ts).
+**Edit the menu in Admin → Menu** — no code needed. Add, rename, reorder or remove top menu items (Boys, Girls, Women…), their dropdown columns and the pages in them (e.g. Girls → Dresses), and choose which products each shows: a department, one or more categories and/or a collection. Changes go live when you click **Save menu**; **Reset to the original menu** undoes them. Removing a menu item or page never deletes products. "Sale" always stays last.
+
+**Categories** (Dresses, Hoodies…) are added, renamed and deleted in **Admin → Categories**. To delete a category that has products, choose a category to move them to. To show a new category in the menu, add a page for it in Admin → Menu. Departments (Women, Men, Girls, Boys, Baby) are fixed groups every product belongs to; a menu item doesn't need one (e.g. Footwear shows the Footwear category from every department).
+
+The starting menu — used until it's edited in the admin — is in [`src/lib/navigation.ts`](src/lib/navigation.ts); the edited menu is saved in the database (Setting `menu`). The starting categories are listed in [`src/lib/categories.ts`](src/lib/categories.ts).
 
 ### How it's organised
 
@@ -438,6 +444,8 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `admin/ProductForm.tsx` | The product editor (details, prices, variants, photos) |
 | `admin/ImageField.tsx` | Picture upload with recommended size, the Adjust window, and Adjust buttons for photo lists |
 | `admin/BlogForm.tsx` | The blog post editor: toolbar, photo uploads, preview |
+| `admin/BlogUpload.tsx` | Admin → Blog → Upload several posts |
+| `admin/MenuEditor.tsx` | Admin → Menu: edit menu items, dropdown columns and pages |
 | `admin/EventForm.tsx` | The seasonal event editor |
 | `admin/DepartmentTileFields.tsx` | Picture/text/button fields for the homepage cards in Site settings |
 | `admin/ActionForm.tsx` | Admin form wrapper that shows "Saved" / error messages |
@@ -448,7 +456,7 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | File | What it does |
 |---|---|
 | `navigation.ts` | **The menu**: sections, dropdown pages, filters, homepage cards (section 4) |
-| `navigation-server.ts` | Builds the header menu, adding admin-created categories under "More in …" |
+| `navigation-server.ts` | The menu as edited in Admin → Menu (cached), and the header built from it, adding admin-created categories under "More in …" |
 | `categories.ts` | The master list of categories |
 | `catalog.ts` | Finding products: listing, filtering, sorting, departments, collections |
 | `events.ts` | Which seasonal event is live, theme helpers |
@@ -463,6 +471,8 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `chat-store.ts` | Loading and saving chat conversations |
 | `auth.ts` / `session.ts` | Staff sign-in, roles and permissions; signed sign-in cookies for staff and customers |
 | `blog.ts` / `blog-format.tsx` | Published blog posts (cached), and turning post text into headings, lists, links and photos safely |
+| `blog-import.ts` | Reads Word, text and spreadsheet files into blog post drafts |
+| `menu.ts` | Checks an edited menu before it's saved (Admin → Menu) |
 | `shopify-import.ts` | Reads a Shopify shop's product feed and maps its products, prices, sizes and photos to ours |
 | `import-job.ts` | Runs Admin → Import products in the background and reports progress |
 | `product-sheet.ts` | Products ⇄ Excel: the columns, building the export file, reading a sheet and checking each row |

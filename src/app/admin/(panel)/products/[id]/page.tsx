@@ -6,6 +6,7 @@ import { ProductForm } from "@/components/admin/ProductForm";
 import { requireAdminPage } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { toInputValue } from "@/lib/money";
+import { getSections } from "@/lib/navigation-server";
 
 export default async function EditProduct({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string }> }) {
   await requireAdminPage("products");
@@ -31,6 +32,7 @@ export default async function EditProduct({ params, searchParams }: { params: Pr
       {saved && <div className="alert alert-success">Product created.</div>}
       <ProductForm
         categories={categories.map((c) => ({ id: c.id, name: c.name, slug: c.slug }))}
+        sections={await getSections()}
         initial={{
           id: product.id,
           name: product.name,

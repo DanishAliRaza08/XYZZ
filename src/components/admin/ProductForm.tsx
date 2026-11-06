@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { saveProduct } from "@/app/admin/actions";
 import { focusStyle, parseImage } from "@/lib/image-focus";
-import { SECTIONS, menuPlacesFor, placementForPage, sectionPages } from "@/lib/navigation";
+import { menuPlacesFor, placementForPage, sectionPages, type Section } from "@/lib/navigation";
 import type { Department } from "@prisma/client";
 import { ActionForm } from "./ActionForm";
 import { AdjustButton, SizeHint } from "./ImageField";
@@ -43,7 +43,7 @@ const EMPTY: ProductInitial = {
 
 const COLLECTION_SUGGESTIONS = ["Halloween", "Christmas", "Eid", "Diwali", "World Book Day"];
 
-export function ProductForm({ categories, initial }: { categories: { id: string; name: string; slug: string }[]; initial?: ProductInitial }) {
+export function ProductForm({ categories, sections, initial }: { categories: { id: string; name: string; slug: string }[]; sections: Section[]; initial?: ProductInitial }) {
   const init = initial ?? { ...EMPTY, categoryId: categories[0]?.id ?? "" };
   // Where the product appears in the menu depends on these three (see src/lib/navigation.ts).
   const [department, setDepartment] = useState(init.department);
@@ -51,11 +51,11 @@ export function ProductForm({ categories, initial }: { categories: { id: string;
   const [collection, setCollection] = useState(init.collection);
   const [placeNote, setPlaceNote] = useState<string | null>(null);
   const categorySlug = categories.find((c) => c.id === categoryId)?.slug;
-  const places = menuPlacesFor({ department: department as Department, categorySlug, collection: collection.trim() || null });
+  const places = menuPlacesFor({ department: department as Department, categorySlug, collection: collection.trim() || null }, sections);
 
   const placeIn = (value: string) => {
     const [sectionSlug, pageSlug] = value.split("/");
-    const p = placementForPage(sectionSlug, pageSlug);
+    const p = placementForPage(sectionSlug, pageSlug, sections);
     if (!p) return;
     setPlaceNote(null);
     if (p.department) setDepartment(p.department);
@@ -137,7 +137,7 @@ export function ProductForm({ categories, initial }: { categories: { id: string;
           <label htmlFor="placeIn">Put it in the menu</label>
           <select id="placeIn" className="select" value="" onChange={(e) => placeIn(e.target.value)} style={{ maxWidth: 480 }}>
             <option value="">Choose a menu page, e.g. Girls → Dresses…</option>
-            {SECTIONS.map((sec) => (
+            {sections.map((sec) => (
               <optgroup key={sec.slug} label={sec.label}>
                 {sectionPages(sec).map((pg) => <option key={pg.slug} value={`${sec.slug}/${pg.slug}`}>{sec.label} → {pg.label}</option>)}
               </optgroup>

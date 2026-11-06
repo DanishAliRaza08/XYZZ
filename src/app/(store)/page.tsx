@@ -5,6 +5,7 @@ import { getCurrency } from "@/lib/currency-server";
 import { getActiveEvent, isSafeImage, parseBanners, themeSlug } from "@/lib/events";
 import { formatMoney } from "@/lib/money";
 import { homeTiles } from "@/lib/navigation";
+import { getSections } from "@/lib/navigation-server";
 import { getSettings } from "@/lib/settings";
 import { ShopImage } from "@/components/ShopImage";
 import { heroTextPosition } from "@/lib/hero";
@@ -148,7 +149,7 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="tiles">
-            {homeTiles(settings.departmentTiles).map((t) => (
+            {homeTiles(settings.departmentTiles, await getSections()).map((t) => (
               <article key={t.slug} className="dept-tile">
                 <Link href={t.href} className="dept-tile-media" tabIndex={-1} aria-hidden>
                   <ShopImage src={t.image} alt="" sizes="(max-width: 480px) 100vw, (max-width: 900px) 50vw, 25vw" />

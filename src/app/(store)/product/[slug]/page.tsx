@@ -92,6 +92,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
               name={product.name}
               purchasable={Boolean(price)}
               sizes={sizes}
+              images={product.images.map((i) => ({ url: i.url, alt: i.alt, colour: i.colour }))}
               variants={product.variants.map((v) => ({ id: v.id, size: v.size, colour: v.colour, colourHex: v.colourHex, stock: Math.max(0, v.stock) }))}
             />
 

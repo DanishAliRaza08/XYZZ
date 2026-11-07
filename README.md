@@ -250,12 +250,13 @@ Options: `npm run import:products -- https://other-shop.example --max-images 2 -
 
 ### How a customer pays
 
-1. **Checkout → details:** they enter their email, delivery address and delivery method, tick the terms box and press **Continue to payment**. The server re-checks the bag, prices, stock and discount, creates the order (status *Pending payment*) and asks Stripe to prepare a payment for the exact total.
-2. **Checkout → card details:** a card form appears on the same page (card number, expiry, CVC, and billing country/postcode pre-filled from the delivery address). They press **Pay £…**.
+0. **Add to bag:** a burst of confetti and an "Added to your bag" pop-up with the item, **Checkout**, **View bag** and **Continue shopping** (no animation for visitors whose device is set to reduce motion).
+1. **Checkout → details (`/checkout`, step 1 of 3):** they enter their email, delivery address and delivery method, tick the terms box and press **Continue to payment**. The server re-checks the bag, prices, stock and discount, creates the order (status *Pending payment*) and asks Stripe to prepare a payment for the exact total.
+2. **Checkout → payment (`/checkout/pay`, step 2 of 3):** a separate page with the delivery details, the order summary and the card form (card number, expiry, CVC; billing country/postcode pre-filled from the delivery address). They press **Pay £…**. Reloading the page keeps the payment; it's kept for that browser tab only.
    - If their bank wants extra security (3D Secure), a pop-up from the bank opens; once approved the payment finishes.
    - If the card is declined, a message explains why (e.g. "Your card has insufficient funds") and they can try another card straight away.
-   - **Edit details** goes back to step 1 and cancels the unpaid order.
-3. **Thank-you page:** the order is marked **Paid**, stock goes down and the bag is emptied. This happens as soon as Stripe confirms the payment — the thank-you page checks with Stripe directly, and Stripe's webhook confirms it again in the background.
+   - **Edit details** goes back to step 1 with everything still filled in, and cancels the unpaid order (a new one is made on Continue). Pressing the browser's Back button instead shows a "Back to payment" link.
+3. **Thank-you page (step 3 of 3, with fireworks):** the order is marked **Paid**, stock goes down and the bag is emptied. This happens as soon as Stripe confirms the payment — the thank-you page checks with Stripe directly, and Stripe's webhook confirms it again in the background.
 
 **Signed-in customers and saved cards.** When a customer with an account checks out, the payment is linked to their own Stripe customer record. The card form then lists the cards they saved before (tap one and pay — just the CVC if the bank asks) and shows a **"Save payment details for future purchases"** tick box under a new card. Saved cards are kept by Stripe and listed (with *Remove*) on the customer's **My account** page. This needs no extra setup beyond the Stripe keys below. We only ever see the card brand, last 4 digits and expiry date. Saving bank account details for Direct Debit is not supported — customers pay by card (or Apple Pay / Google Pay).
 

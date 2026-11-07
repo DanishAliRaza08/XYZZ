@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ClearBagOnSuccess } from "@/components/BagAndCheckout";
+import { CheckoutSteps } from "@/components/CheckoutPay";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { findPaidOrder } from "@/lib/orders";
@@ -25,7 +26,8 @@ export default async function SuccessPage({ searchParams }: { searchParams: Prom
   const paid = ["PAID", "PROCESSING", "SHIPPED", "DELIVERED", "NEEDS_ATTENTION"].includes(order.status);
   return (
     <div className="container section" style={{ maxWidth: 720 }}>
-      {order.status !== "CANCELLED" && <ClearBagOnSuccess />}
+      {order.status !== "CANCELLED" && <ClearBagOnSuccess celebrate={paid} />}
+      <CheckoutSteps current={3} />
       <span className="eyebrow">Order {order.number}</span>
       <h1>{paid ? "Thank you for your order" : "We're confirming your payment"}</h1>
       <p className="muted">

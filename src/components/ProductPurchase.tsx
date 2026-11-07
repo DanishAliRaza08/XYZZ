@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { createContext, useContext, useMemo, useState } from "react";
-import { photosForColour } from "@/lib/photos";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { photoForColour, photosForColour } from "@/lib/photos";
+import { confettiFromElement } from "./celebrate";
 import { HeartIcon } from "./Icons";
 import { ShopImage } from "./ShopImage";
 import { useStore } from "./StoreProvider";
@@ -19,8 +21,48 @@ export function ProductColourProvider({ variants, initialColour, children }: { v
   return <ColourContext.Provider value={{ colour, setColour }}>{children}</ColourContext.Provider>;
 }
 
-export function ProductPurchase({ slug, name, variants, sizes, purchasable }: { slug: string; name: string; variants: V[]; sizes: string[]; purchasable: boolean }) {
-  const { addToBag, wishlist, toggleWishlist } = useStore();
+type Img = { url: string; alt: string; colour: string | null };
+
+/** The pop-up after "Add to bag": what was added, and Checkout / View bag / Continue shopping. */
+function AddedToBag({ name, size, colour, qty, image, bagCount, onClose }: { name: string; size: string; colour?: string; qty: number; image?: Img; bagCount: number; onClose: () => void }) {
+  const checkout = useRef<HTMLAnchorElement>(null);
+  useEffect(() => {
+    checkout.current?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  // Drawn on <body>, so it sits above the sticky header and the chat button.
+  return createPortal(
+    <div className="added-backdrop" onClick={onClose}>
+      <div className="added-dialog" role="dialog" aria-modal="true" aria-labelledby="added-title" onClick={(e) => e.stopPropagation()}>
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <strong id="added-title" style={{ fontSize: "1.05rem" }}>🎉 Added to your bag</strong>
+          <button type="button" className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div className="added-item">
+          <div className="thumb-lg">{image && <ShopImage src={image.url} alt={image.alt || name} sizes="72px" />}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <strong>{name}</strong>
+            <span className="muted small">{[colour, `Size ${size}`, `Qty ${qty}`].filter(Boolean).join(" · ")}</span>
+            <span className="small">{bagCount} item{bagCount === 1 ? "" : "s"} in your bag</span>
+          </div>
+        </div>
+        <div className="added-actions">
+          <Link ref={checkout} href="/checkout" className="btn btn-accent">Checkout</Link>
+          <Link href="/bag" className="btn btn-outline">View bag</Link>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Continue shopping</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+export function ProductPurchase({ slug, name, variants, sizes, purchasable, images = [] }: { slug: string; name: string; variants: V[]; sizes: string[]; purchasable: boolean; images?: Img[] }) {
+  const { addToBag, wishlist, toggleWishlist, bagCount } = useStore();
+  const addButton = useRef<HTMLButtonElement>(null);
+  const [popup, setPopup] = useState(false);
   const colours = useMemo(() => [...new Map(variants.map((v) => [v.colour, v.colourHex])).entries()], [variants]);
   const { colour, setColour } = useContext(ColourContext);
   const [size, setSize] = useState<string | null>(sizes.length === 1 ? sizes[0] : null);
@@ -43,6 +85,8 @@ export function ProductPurchase({ slug, name, variants, sizes, purchasable }: { 
     if (data.stock < qty) return setError(data.stock > 0 ? `Only ${data.stock} left in this size.` : "Sorry, this size has just sold out.");
     addToBag(variant.id, qty);
     setAdded(true);
+    confettiFromElement(addButton.current);
+    setPopup(true);
   };
 
   return (
@@ -82,7 +126,7 @@ export function ProductPurchase({ slug, name, variants, sizes, purchasable }: { 
           <input aria-label="Quantity" inputMode="numeric" value={qty} onChange={(e) => setQty(Math.max(1, Math.min(10, Number(e.target.value.replace(/\D/g, "")) || 1)))} />
           <button type="button" aria-label="Increase quantity" onClick={() => setQty((q) => Math.min(10, q + 1))}>+</button>
         </div>
-        <button type="button" className="btn btn-accent" style={{ flex: 1 }} disabled={!purchasable || !size || !variant || variant.stock <= 0} onClick={add}>
+        <button ref={addButton} type="button" className="btn btn-accent" style={{ flex: 1 }} disabled={!purchasable || !size || !variant || variant.stock <= 0} onClick={add}>
           {!purchasable ? "Unavailable" : !size ? "Select a size" : variant && variant.stock <= 0 ? "Out of stock" : "Add to bag"}
         </button>
         <button type="button" className="icon-btn" style={{ border: "1px solid var(--border)", borderRadius: 4, width: 46, height: 46 }} aria-pressed={saved} aria-label={saved ? "Remove from wishlist" : "Save to wishlist"} onClick={() => toggleWishlist(slug)}>
@@ -90,6 +134,9 @@ export function ProductPurchase({ slug, name, variants, sizes, purchasable }: { 
         </button>
       </div>
       {error && <p className="field-error" role="alert">{error}</p>}
+      {popup && size && (
+        <AddedToBag name={name} size={size} colour={colours.length > 1 ? colour : undefined} qty={qty} bagCount={bagCount} image={colour ? photoForColour(images, colour) : images[0]} onClose={() => setPopup(false)} />
+      )}
       {added && (
         <div className="alert alert-success" role="status">
           Added {qty} × {name} ({size}, {colour}) to your bag. <Link href="/bag" style={{ textDecoration: "underline" }}>View bag</Link>

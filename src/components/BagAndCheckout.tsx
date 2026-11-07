@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { formatMoney, type CurrencyCode } from "@/lib/money";
 import type { Quote } from "@/lib/quote";
-import { CardPayment } from "./CardPayment";
+import { cancelPendingPayment, CheckoutSteps, DETAILS_KEY, readPendingPayment, readSession, savePendingPayment, writeSession, type PendingPayment } from "./CheckoutPay";
+import { fireworks } from "./celebrate";
+import { Summary } from "./OrderSummary";
 import { ProductArtClient } from "./ProductArtClient";
 import { useStore } from "./StoreProvider";
 
@@ -37,26 +40,6 @@ function useQuote(shippingMethod: "standard" | "express", discountCode: string |
   }, [key, ready, shippingMethod, discountCode]);
 
   return { quote, loading: loading || !ready, error };
-}
-
-function Summary({ quote, children }: { quote: Quote; children?: React.ReactNode }) {
-  const c = quote.currency as CurrencyCode;
-  return (
-    <div className="panel">
-      <h3>Order summary</h3>
-      <div className="summary-row"><span>Subtotal</span><span>{formatMoney(quote.subtotal, c)}</span></div>
-      {quote.discount > 0 && (
-        <div className="summary-row" style={{ color: "var(--success)" }}><span>Discount ({quote.discountCode})</span><span>−{formatMoney(quote.discount, c)}</span></div>
-      )}
-      <div className="summary-row"><span>{quote.shippingMethod === "express" ? "Express" : "Standard"} delivery</span><span>{quote.shipping === 0 ? "Free" : formatMoney(quote.shipping, c)}</span></div>
-      <div className="summary-row summary-total"><span>Total</span><span>{formatMoney(quote.total, c)}</span></div>
-      <p className="muted small" style={{ marginTop: 6 }}>{c === "GBP" ? "Includes UK VAT." : "US sales tax and import duties, if any, are not included."}</p>
-      {quote.shippingMethod === "standard" && quote.freeShippingRemaining > 0 && quote.lines.length > 0 && (
-        <p className="small">Spend {formatMoney(quote.freeShippingRemaining, c)} more for free standard delivery.</p>
-      )}
-      {children}
-    </div>
-  );
 }
 
 export function BagView({ cancelled }: { cancelled: boolean }) {
@@ -117,14 +100,13 @@ export function BagView({ cancelled }: { cancelled: boolean }) {
 
 type Fields = { email: string; name: string; phone: string; addressLine1: string; addressLine2: string; city: string; region: string; postcode: string };
 
-type PaymentStep = { clientSecret: string; customerSessionClientSecret: string | null; orderNumber: string; total: number };
-
 /** Details from a signed-in customer's account, used to fill in the form. */
 export type CheckoutPrefill = Partial<Fields>;
 
 /**
- * Checkout in two steps on one page: 1) contact, delivery address and method, then "Continue to payment"
- * creates the order; 2) the card form (CardPayment) appears and the customer pays without leaving the page.
+ * Checkout step 1: contact, delivery address and method. "Continue to payment" creates the order and opens
+ * step 2, the payment page (/checkout/pay, PayView in CheckoutPay.tsx). What was typed is kept for this tab,
+ * so "Edit details" (or the browser's Back button) comes back to a filled-in form.
  */
 export function CheckoutView({
   currency,
@@ -138,7 +120,9 @@ export function CheckoutView({
   setupProblems?: string[];
 }) {
   const paymentsEnabled = Boolean(publishableKey);
-  const [payment, setPayment] = useState<PaymentStep | null>(null);
+  const router = useRouter();
+  // An order already created in this tab and not paid yet (e.g. after pressing Back on the payment page).
+  const [pending, setPending] = useState<PendingPayment | null>(null);
   const [method, setMethod] = useState<"standard" | "express">("standard");
   const [codeInput, setCodeInput] = useState("");
   const [code, setCode] = useState<string | null>(null);
@@ -151,6 +135,20 @@ export function CheckoutView({
   const { bag } = useStore();
   const country = currency === "GBP" ? "GB" : "US";
 
+  // Fill the form in again with what was typed earlier in this tab.
+  useEffect(() => {
+    const saved = readSession<{ f: Fields; method: "standard" | "express"; code: string | null }>(DETAILS_KEY);
+    if (saved) {
+      setF((cur) => ({ ...cur, ...saved.f }));
+      setMethod(saved.method === "express" ? "express" : "standard");
+      if (saved.code) {
+        setCode(saved.code);
+        setCodeInput(saved.code);
+      }
+    }
+    setPending(readPendingPayment());
+  }, []);
+
   const field = (k: keyof Fields, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <div className="field">
       <label htmlFor={`f-${k}`}>{label}</label>
@@ -161,11 +159,20 @@ export function CheckoutView({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitting || payment) return;
+    if (submitting) return;
     setFormError(null);
     setFieldErrors({});
     if (!terms) return setFormError("Please accept the terms and returns policy to continue.");
     setSubmitting(true);
+    // Details changed after an order was made: cancel that unpaid order first, so only one is left.
+    if (pending) {
+      const r = await cancelPendingPayment(pending);
+      if (r === "paid") {
+        setSubmitting(false);
+        return setFormError("Your earlier order has already been paid — check your email or track your order.");
+      }
+      setPending(null);
+    }
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
@@ -179,27 +186,26 @@ export function CheckoutView({
         setSubmitting(false);
         return;
       }
-      setPayment({ clientSecret: data.clientSecret, customerSessionClientSecret: data.customerSessionClientSecret ?? null, orderNumber: data.orderNumber, total: data.total });
-      setSubmitting(false);
+      writeSession(DETAILS_KEY, { f, method, code });
+      savePendingPayment({
+        clientSecret: data.clientSecret,
+        customerSessionClientSecret: data.customerSessionClientSecret ?? null,
+        orderNumber: data.orderNumber,
+        total: data.total,
+        quote: quote!,
+        method,
+        billing: {
+          name: f.name,
+          email: f.email,
+          phone: f.phone,
+          address: { line1: f.addressLine1, line2: f.addressLine2, city: f.city, state: f.region, postal_code: f.postcode, country },
+        },
+      });
+      router.push("/checkout/pay");
     } catch {
       setFormError("Network error — please check your connection and try again.");
       setSubmitting(false);
     }
-  };
-
-  // Back to step 1: cancels the unpaid order so a new one is made with the edited details.
-  const editDetails = async () => {
-    if (!payment) return;
-    setSubmitting(true);
-    setFormError(null);
-    const res = await fetch("/api/checkout/cancel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderNumber: payment.orderNumber, clientSecret: payment.clientSecret }),
-    }).catch(() => null);
-    setSubmitting(false);
-    if (res?.status === 409) return setFormError("This order has already been paid. Check your email or track your order.");
-    setPayment(null);
   };
 
   if (loading && !quote) return <p className="muted" style={{ padding: "40px 0" }}>Loading checkout…</p>;
@@ -214,8 +220,16 @@ export function CheckoutView({
 
   const c = quote.currency as CurrencyCode;
   return (
+    <>
+    <CheckoutSteps current={1} />
+    {pending && (
+      <div className="alert alert-warning row" style={{ marginBottom: 16, justifyContent: "space-between" }}>
+        <span>You&apos;ve started paying for order {pending.orderNumber}. Change your details below and continue, or go straight back to payment.</span>
+        <Link href="/checkout/pay" className="btn btn-sm btn-outline">Back to payment</Link>
+      </div>
+    )}
     <form className="two-col" onSubmit={submit} noValidate>
-      <fieldset className="stack" disabled={Boolean(payment)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      <fieldset className="stack" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
         {!paymentsEnabled && (
           <div className="alert alert-warning">
             Online payments are being set up. You can review your order, but card payments aren&apos;t available yet — please contact us via chat to order.
@@ -274,58 +288,38 @@ export function CheckoutView({
         <div className="panel">
           <label htmlFor="code" className="label">Discount code</label>
           <div className="row" style={{ flexWrap: "nowrap", marginTop: 6 }}>
-            <input id="code" className="input" value={codeInput} onChange={(e) => setCodeInput(e.target.value.toUpperCase())} maxLength={40} disabled={Boolean(payment)} />
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => setCode(codeInput.trim() || null)} disabled={Boolean(payment)}>Apply</button>
+            <input id="code" className="input" value={codeInput} onChange={(e) => setCodeInput(e.target.value.toUpperCase())} maxLength={40} />
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => setCode(codeInput.trim() || null)}>Apply</button>
           </div>
           {code && quote.discountError && <p className="field-error small">{quote.discountError}</p>}
           {code && quote.discountCode && <p className="small" style={{ color: "var(--success)" }}>Code {quote.discountCode} applied.</p>}
         </div>
         <Summary quote={quote}>
-          {!payment ? (
-            <>
-              <label className="checkbox small" style={{ marginTop: 12, alignItems: "flex-start" }}>
-                <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} />
-                <span>I agree to the <Link href="/terms" style={{ textDecoration: "underline" }}>terms</Link> and <Link href="/delivery-returns" style={{ textDecoration: "underline" }}>returns policy</Link>, and understand my order is placed with an obligation to pay.</span>
-              </label>
-              {formError && <div className="alert alert-error" role="alert" style={{ marginTop: 10 }}>{formError}</div>}
-              <button className="btn btn-accent btn-block" style={{ marginTop: 14 }} disabled={submitting || !quote.ok || !paymentsEnabled || (Boolean(code) && !quote.discountCode)}>
-                {submitting ? "Please wait…" : "Continue to payment"}
-              </button>
-            </>
-          ) : (
-            <div className="stack" style={{ marginTop: 14, gap: 10 }}>
-              <div className="row" style={{ justifyContent: "space-between" }}>
-                <h3 style={{ margin: 0 }}>Pay by card</h3>
-                <button type="button" className="btn btn-sm btn-ghost" onClick={editDetails} disabled={submitting}>Edit details</button>
-              </div>
-              <p className="muted small" style={{ margin: 0 }}>Order {payment.orderNumber} · delivering to {f.name}, {f.postcode}</p>
-              {formError && <div className="alert alert-error" role="alert">{formError}</div>}
-              <CardPayment
-                publishableKey={publishableKey!}
-                clientSecret={payment.clientSecret}
-                customerSessionClientSecret={payment.customerSessionClientSecret}
-                orderNumber={payment.orderNumber}
-                amountLabel={formatMoney(payment.total, c)}
-                billing={{
-                  name: f.name,
-                  email: f.email,
-                  phone: f.phone,
-                  address: { line1: f.addressLine1, line2: f.addressLine2, city: f.city, state: f.region, postal_code: f.postcode, country },
-                }}
-              />
-            </div>
-          )}
+          <label className="checkbox small" style={{ marginTop: 12, alignItems: "flex-start" }}>
+            <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} />
+            <span>I agree to the <Link href="/terms" style={{ textDecoration: "underline" }}>terms</Link> and <Link href="/delivery-returns" style={{ textDecoration: "underline" }}>returns policy</Link>, and understand my order is placed with an obligation to pay.</span>
+          </label>
+          {formError && <div className="alert alert-error" role="alert" style={{ marginTop: 10 }}>{formError}</div>}
+          <button className="btn btn-accent btn-block" style={{ marginTop: 14 }} disabled={submitting || !quote.ok || !paymentsEnabled || (Boolean(code) && !quote.discountCode)}>
+            {submitting ? "Please wait…" : "Continue to payment →"}
+          </button>
           <p className="muted small center" style={{ marginTop: 8 }}>🔒 Card payments are processed securely by Stripe. We never see or store your card details.</p>
         </Summary>
       </aside>
     </form>
+    </>
   );
 }
 
-export function ClearBagOnSuccess() {
+export function ClearBagOnSuccess({ celebrate = false }: { celebrate?: boolean }) {
   const { clearBag, ready } = useStore();
   useEffect(() => {
-    if (ready) clearBag();
+    if (!ready) return;
+    clearBag();
+    // The order is done: forget the checkout details and payment kept for this tab.
+    savePendingPayment(null);
+    writeSession(DETAILS_KEY, null);
+    if (celebrate) fireworks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
   return null;

@@ -10,7 +10,7 @@ import { audit, requireAdminPage } from "@/lib/auth";
 import { invalidateStoreCache } from "@/lib/cache";
 import { heroTextPosition } from "@/lib/hero";
 import { startImport } from "@/lib/import-job";
-import { normaliseSource } from "@/lib/shopify-import";
+import { normaliseShopUrl } from "@/lib/store-import";
 import { slugify } from "@/lib/catalog";
 import { prisma } from "@/lib/db";
 import { HEX_COLOUR, isSafeImage, isSitePath, parseBanners } from "@/lib/events";
@@ -114,7 +114,7 @@ export async function startProductImport(_: FormState, fd: FormData): Promise<Fo
   const admin = await requireAdminPage("products");
   let source: string;
   try {
-    source = normaliseSource(str(fd, "source"));
+    source = normaliseShopUrl(str(fd, "source")).href;
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Enter a website address." };
   }

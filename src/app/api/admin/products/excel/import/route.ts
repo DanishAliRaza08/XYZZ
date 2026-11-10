@@ -39,6 +39,8 @@ export async function POST(req: NextRequest) {
     errorCount: plan.errors.length,
     errors: plan.errors.slice(0, 200),
     ignoredColumns: sheet.ignored,
+    source: sheet.source ?? null, // e.g. "Amazon" when the file was a marketplace export
+    notes: sheet.notes ?? [],
     products: plan.items.slice(0, 300).map((p) => ({
       name: p.name, slug: p.slug, action: p.action, row: p.rows[0], sizes: p.variants.length,
       newSizes: p.variants.filter((v) => !v.id).length, photos: p.photos?.length ?? null,

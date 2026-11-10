@@ -17,12 +17,17 @@ export default async function ImportPage() {
     <div className="stack">
       <h1>Import products</h1>
       <p className="muted" style={{ maxWidth: 760 }}>
-        Copy products, prices, sizes, colours and photos from another online shop built on <strong>Shopify</strong> (for example https://gumandberries.co.uk).
+        Copy products, prices, sizes, colours and photos from another online shop. Enter its address and the import works out what kind of shop it is:
+      </p>
+      <ul className="muted small" style={{ maxWidth: 760, margin: 0, paddingLeft: 18 }}>
+        <li><strong>Shopify</strong> shops (e.g. https://gumandberries.co.uk) and <strong>WooCommerce</strong> (WordPress) shops: every product, from their product feed.</li>
+        <li><strong>Any other website</strong>, including custom-built ones: product pages found through its sitemap, read from the product details most shops include for Google. You can also enter one product page, or a category page to import the products it links to.</li>
+        <li><strong>Amazon, TikTok Shop, eBay, Etsy:</strong> these don&apos;t allow their pages to be copied. Download your listings from your seller account and upload the file in{" "}
+          <Link href="/admin/products/excel" style={{ textDecoration: "underline" }}>Products → Excel import / export</Link> (instructions there).</li>
+      </ul>
+      <p className="muted" style={{ maxWidth: 760, marginTop: 0 }}>
         Products already in your shop are left as they are, so you can run the same import again later to add new arrivals.
         Only import products and photos you have permission to sell and reuse.
-      </p>
-      <p className="muted" style={{ maxWidth: 760, marginTop: 0 }}>
-        Have your products in a spreadsheet instead? Use <Link href="/admin/products/excel">Products → Excel import / export</Link>.
       </p>
 
       {running && <AutoRefresh seconds={2} />}
@@ -31,7 +36,7 @@ export default async function ImportPage() {
         <section className="panel stack">
           <div className="field">
             <label htmlFor="source">Shop website address *</label>
-            <input id="source" name="source" className="input" placeholder="https://gumandberries.co.uk" required disabled={running} />
+            <input id="source" name="source" className="input" placeholder="https://shop.example.co.uk" required disabled={running} />
           </div>
           <div className="grid-3">
             <div className="field">
@@ -70,7 +75,7 @@ export default async function ImportPage() {
         <section className="panel stack">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <h3 style={{ margin: 0 }}>{running ? "Import in progress" : job.status === "done" ? "Last import finished" : "Last import stopped"}</h3>
-            <span className="muted small">{job.source} · started {job.startedAt.toLocaleTimeString("en-GB")}</span>
+            <span className="muted small">{job.source}{job.platform ? ` (${job.platform === "website" ? "website" : job.platform})` : ""} · started {job.startedAt.toLocaleTimeString("en-GB")}</span>
           </div>
           <p className={job.status === "failed" ? "alert alert-error" : job.status === "done" ? "alert alert-success" : undefined} style={{ margin: 0 }}>
             {job.message}

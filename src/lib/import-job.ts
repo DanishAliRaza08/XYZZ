@@ -1,4 +1,5 @@
-// Admin → Import products: copies a Shopify store's catalogue straight into the shop's database.
+// Admin → Import products: copies another online shop's catalogue (Shopify, WooCommerce or any website with
+// product details — see src/lib/store-import.ts) straight into the shop's database.
 // The import runs in the background on the server (big stores take several minutes) and the admin page
 // shows its progress. One import at a time. Photos are saved like admin uploads (UPLOAD_DIR, served at /uploads/…).
 import crypto from "node:crypto";
@@ -8,7 +9,8 @@ import type { ProductStatus } from "@prisma/client";
 import { invalidateStoreCache } from "./cache";
 import { CATEGORY_NAMES } from "./categories";
 import { prisma } from "./db";
-import { downloadImage, fetchShopifyProducts, mapShopifyProduct, pickPhotos, slugify, type ImportPhoto } from "./shopify-import";
+import { downloadImage, mapShopifyProduct, pickPhotos, slugify, type ImportPhoto } from "./shopify-import";
+import { fetchStoreProducts } from "./store-import";
 import { uploadDir } from "./uploads";
 
 // refreshPhotos: for products already in the shop, download their photos again with each photo's colour
@@ -17,6 +19,7 @@ export type ImportOptions = { source: string; status: ProductStatus; maxImages: 
 
 export type ImportJob = {
   source: string;
+  platform?: string; // Shopify, WooCommerce or website
   status: "running" | "done" | "failed";
   startedAt: Date;
   finishedAt?: Date;
@@ -42,7 +45,7 @@ export function startImport(opts: ImportOptions, adminId: string): string | null
   if (globalJob.__frImportJob?.status === "running") return "An import is already running. Wait for it to finish.";
   const job: ImportJob = {
     source: opts.source, status: "running", startedAt: new Date(), total: 0, processed: 0, created: 0, existing: 0, refreshed: 0, skipped: 0, photos: 0,
-    message: "Reading the store's product list…", log: [],
+    message: "Reading the shop's products…", log: [],
   };
   globalJob.__frImportJob = job;
   void run(job, opts, adminId);
@@ -56,7 +59,8 @@ function note(job: ImportJob, line: string) {
 
 async function run(job: ImportJob, opts: ImportOptions, adminId: string) {
   try {
-    const items = await fetchShopifyProducts(opts.source, opts.limit, (page, count) => note(job, `Read page ${page}: ${count} products`));
+    const { platform, items } = await fetchStoreProducts(opts.source, opts.limit, (line) => note(job, line));
+    job.platform = platform;
     job.total = items.length;
     job.message = `Importing ${items.length} products…`;
 
@@ -82,7 +86,7 @@ async function run(job: ImportJob, opts: ImportOptions, adminId: string) {
         if (opts.refreshPhotos) await refreshPhotos(job, existingSlug, p, opts, dir);
         continue;
       }
-      const mapped = mapShopifyProduct(p, { source: opts.source, defaultStock: opts.defaultStock, usdRate: 1.3 }, usedSlugs, usedSkus);
+      const mapped = mapShopifyProduct(p, { source: new URL(opts.source).origin, defaultStock: opts.defaultStock, usdRate: 1.3 }, usedSlugs, usedSkus);
       if (!mapped) {
         job.skipped++;
         note(job, `Skipped "${p.title}": no sizes or no price`);
@@ -166,7 +170,7 @@ async function savePhotos(photos: ImportPhoto[], dir: string) {
 /** Replaces an already-imported product's photos with fresh ones that know their colour. */
 async function refreshPhotos(job: ImportJob, slug: string, p: Parameters<typeof mapShopifyProduct>[0], opts: ImportOptions, dir: string) {
   const product = await prisma.product.findUnique({ where: { slug }, select: { id: true, name: true, variants: { select: { colour: true } } } });
-  const mapped = product && mapShopifyProduct(p, { source: opts.source, defaultStock: 0, usdRate: 0 }, new Set(), new Set());
+  const mapped = product && mapShopifyProduct(p, { source: new URL(opts.source).origin, defaultStock: 0, usdRate: 0 }, new Set(), new Set());
   if (!product || !mapped) return;
   const images = await savePhotos(pickPhotos(mapped.photos, opts.maxImages), dir);
   if (!images.length) return; // keep the current photos rather than leave none

@@ -12,6 +12,8 @@ type Summary = {
   errorCount: number;
   errors: { row: number; product: string; message: string }[];
   ignoredColumns: string[];
+  source: string | null;
+  notes: string[];
   products: { name: string; slug: string; action: "create" | "update"; row: number; sizes: number; newSizes: number; photos: number | null }[];
 };
 
@@ -68,13 +70,13 @@ export function ExcelImport({ initialJob }: { initialJob: SheetJob | null }) {
       <section className="panel stack">
         <div className="grid-2">
           <div className="field">
-            <label htmlFor="excel-file">Excel file (.xlsx or .csv)</label>
+            <label htmlFor="excel-file">File (.xlsx, .csv, or an Amazon .txt report)</label>
             <input
               id="excel-file"
               key={inputKey}
               type="file"
               className="input"
-              accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+              accept=".xlsx,.csv,.txt,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain"
               disabled={running || !!busy}
               onChange={(e) => {
                 setFile(e.target.files?.[0] ?? null);
@@ -110,6 +112,12 @@ export function ExcelImport({ initialJob }: { initialJob: SheetJob | null }) {
             {summary.rows} rows read · <strong>{summary.create}</strong> new product{summary.create === 1 ? "" : "s"} · <strong>{summary.update}</strong> product{summary.update === 1 ? "" : "s"} updated
             {summary.errorCount > 0 && <> · <strong className="field-error">{summary.errorCount} problem{summary.errorCount === 1 ? "" : "s"}</strong> (those products are left out)</>}
           </p>
+          {summary.source && (
+            <p className="small" style={{ margin: 0 }}>
+              Read as {summary.source === "marketplace" ? "a marketplace export" : `an ${summary.source} export`.replace("an TikTok", "a TikTok")} — sizes and colours are grouped into products.
+            </p>
+          )}
+          {summary.notes?.map((n) => <p key={n} className="muted small" style={{ margin: 0 }}>ℹ️ {n}</p>)}
           {summary.ignoredColumns.length > 0 && (
             <p className="muted small" style={{ margin: 0 }}>Columns not used: {summary.ignoredColumns.join(", ")}.</p>
           )}

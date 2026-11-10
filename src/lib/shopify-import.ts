@@ -99,6 +99,10 @@ export async function fetchShopifyProducts(source: string, limit = Infinity, onP
 export async function downloadImage(src: string, width = 1000): Promise<{ buf: Buffer; ext: "jpg" | "png" | "webp" }> {
   const url = new URL(src.startsWith("//") ? `https:${src}` : src);
   if (url.protocol !== "https:") throw new Error("not an https image");
+  const host = url.hostname.toLowerCase();
+  // Only public websites: never this server, the local network or bare IP addresses.
+  if (!host.includes(".") || host === "localhost" || host.endsWith(".local") || host.endsWith(".internal") || /^[\d.]+$/.test(host) || host.includes(":"))
+    throw new Error("not a public image address");
   if (width > 0 && /shopify/.test(url.hostname)) url.searchParams.set("width", String(width));
   const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(30_000) });
   if (!res.ok) throw new Error(`${res.status}`);

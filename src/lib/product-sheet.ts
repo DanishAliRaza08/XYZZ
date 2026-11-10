@@ -4,6 +4,7 @@
 import { Readable } from "node:stream";
 import ExcelJS from "exceljs";
 import type { Department, ProductStatus } from "@prisma/client";
+import { readMarketplaceGrid } from "./marketplace-file";
 import { parseMoney } from "./money";
 import { colourHex, slugify } from "./shopify-import";
 
@@ -137,7 +138,8 @@ export async function buildProductWorkbook(products: ExportProduct[], categories
 // ---------- reading ----------
 
 export type SheetRow = { row: number; values: Partial<Record<ColumnKey, unknown>> };
-export type ReadSheet = { rows: SheetRow[]; present: Set<ColumnKey>; ignored: string[] };
+// source/notes: set when the file was a marketplace export (Amazon, TikTok Shop…) read by marketplace-file.ts.
+export type ReadSheet = { rows: SheetRow[]; present: Set<ColumnKey>; ignored: string[]; source?: string; notes?: string[] };
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const HEADER_KEYS = new Map<string, ColumnKey>();
@@ -174,8 +176,13 @@ export function cellText(v: unknown): string {
 /** Reads a product sheet (.xlsx, or .csv). Throws an Error with a message for the admin when it can't. */
 export async function readProductSheet(buf: Buffer, fileName = ""): Promise<ReadSheet> {
   const wb = new ExcelJS.Workbook();
+  if (/\.(xls|xlsm|numbers|ods)$/i.test(fileName) && !/\.xlsx$/i.test(fileName))
+    throw new Error("This file type can't be read. Open it in Excel (or Google Sheets) and save or download it as .xlsx, then upload that.");
   try {
-    if (/\.csv$/i.test(fileName)) await wb.csv.read(Readable.from(buf), { map: (v: unknown) => v } as never);
+    // Text files: Amazon reports are tab-separated (.txt / .tsv); .csv is comma-separated.
+    const tabs = /\.(txt|tsv)$/i.test(fileName);
+    if (tabs || /\.csv$/i.test(fileName))
+      await wb.csv.read(Readable.from(buf), { map: (v: unknown) => v, parserOptions: { delimiter: tabs ? "\t" : ",", quote: tabs ? null : '"' } } as never);
     else await wb.xlsx.load(buf as unknown as ArrayBuffer);
   } catch {
     throw new Error("Couldn't open this file. Save it as an Excel workbook (.xlsx) and try again.");
@@ -200,6 +207,17 @@ export async function readProductSheet(buf: Buffer, fileName = ""): Promise<Read
     if (found.size >= 2) [headerRow, columns, ignored] = [r, found, unknown];
   }
   const present = new Set(columns.values());
+  // Not the shop's own layout (no Web address or Department column): try a marketplace export.
+  if (!present.has("slug") && !present.has("department")) {
+    const grid: string[][] = [];
+    for (let r = 1; r <= ws.rowCount; r++) {
+      const cells: string[] = [];
+      ws.getRow(r).eachCell({ includeEmpty: true }, (cell, c) => (cells[c - 1] = cellText(cell.value)));
+      grid.push(Array.from(cells, (c) => c ?? ""));
+    }
+    const market = readMarketplaceGrid(grid);
+    if (market?.rows.length) return { rows: market.rows, present: market.present, ignored: [], source: market.source, notes: market.notes };
+  }
   if (!headerRow || (!present.has("name") && !present.has("slug")))
     throw new Error("This doesn't look like a product sheet: it needs a \"Product name\" or \"Web address\" column. Export your products or download the template to see the layout.");
 
@@ -281,7 +299,9 @@ function skuBase(slug: string) {
 }
 
 /** Works out what importing the rows would do. Products with a problem are left out and listed in `errors`. */
-export function planSheetImport(sheet: Pick<ReadSheet, "rows" | "present">, snap: Snapshot, opts: { defaultStatus: ProductStatus }): ImportPlan {
+export function planSheetImport(sheet: Pick<ReadSheet, "rows" | "present" | "source">, snap: Snapshot, opts: { defaultStatus: ProductStatus }): ImportPlan {
+  // Marketplace exports have guessed categories: one the shop doesn't have falls back to "More styles" (or the first).
+  const fallbackCategory = sheet.source ? (snap.categories.find((c) => c.slug === "more-styles") ?? snap.categories[0]) : undefined;
   const { rows, present } = sheet;
   const errors: SheetError[] = [];
   const items: PlannedProduct[] = [];
@@ -348,6 +368,7 @@ export function planSheetImport(sheet: Pick<ReadSheet, "rows" | "present">, snap
       } else {
         const c = categories.get(t.toLowerCase());
         if (c) data.categoryId = c.id;
+        else if (fallbackCategory) data.categoryId = fallbackCategory.id;
         else fail(rowOf("category"), `Category "${t.slice(0, 60)}" doesn't exist — use one from the Help sheet or add it in Admin → Categories`);
       }
     }

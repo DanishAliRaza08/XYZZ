@@ -85,7 +85,8 @@ Secrets stay on the server. They are never sent to the browser and `.env` is git
 | Upload many blog posts at once (Word, text or a spreadsheet) as drafts | Admin → **Blog** → **Upload several posts** (instructions are on the page) |
 | Add, rename, reorder or remove menu items and their pages | Admin → **Menu** |
 | Publish, move to draft, archive or delete many products at once | Admin → Products → tick the products (or the box in the header for all) → choose an action |
-| Copy all products from another Shopify shop (e.g. a supplier) | Admin → **Import products** — see [section 6](#6-import-products-from-a-shopify-store) |
+| Copy all products from another online shop (Shopify, WooCommerce or any website with product details) | Admin → **Import products** — see [section 6](#6-import-products-from-a-shopify-store) |
+| Bring in your Amazon / TikTok Shop / eBay / Etsy listings | Download the listings file from your seller account, then Admin → Products → **Excel import / export** (instructions on the page) |
 | Export products to Excel, or add/update many products from a spreadsheet | Admin → Products → **Excel import / export** — see [Products in Excel](#products-in-excel-import--export) |
 | Show the right photo for each colour (white skirt photo when "White" is picked) | Admin → Products → the product → **Photos**: set each photo's colour (see below) |
 | Change prices for many products at once, put items on sale, end a sale | Admin → **Pricing** |
@@ -216,6 +217,10 @@ If two events overlap, the one that started most recently is shown. Switch an ev
 ## 6. Import products from a Shopify store
 
 ### From the admin (easiest)
+
+**Any online shop, not only Shopify.** The import works out what kind of shop the address is: **Shopify** (product feed), **WooCommerce** (its public Store API), or **any other website** — product pages found through the sitemap and read from the schema.org *Product* details most shops include for Google (Open Graph product tags as a fallback). You can also enter one product page, or a category page to import the products it links to. Prices on websites in another currency are imported as £ amounts (the log warns). Code: `src/lib/store-import.ts`.
+
+**Amazon, TikTok Shop, eBay, Etsy** block automatic copying of their pages (and their terms forbid it), so their addresses are refused with instructions. Instead upload their **listings export** in Admin → Products → Excel import / export: Amazon's *Category Listings Report* (.txt) or *All Listings Report*, TikTok Shop's product export (.xlsx), or another marketplace's CSV/Excel. Their columns are recognised (`src/lib/marketplace-file.ts`), variations are grouped by parent SKU / product ID, photos are downloaded and tagged with their colour, and guessed categories the shop doesn't have fall back to "More styles".
 
 **Admin → Import products**: paste the shop's address (e.g. `https://gumandberries.co.uk`), choose Published or Draft, how many photos per product and the stock per size, then press **Start import**. The import runs on the server and the page shows its progress; you can leave the page and come back. Photos are saved with your other uploads (`UPLOAD_DIR`). Products already in the shop are left as they are (including your edits), so running it again later only adds new products. Every size/colour gets a new SKU of its own (`GUM-<shop's product number>-1`, `-2`, …), because shops often repeat SKUs; a product that can't be saved is skipped and listed, without stopping the import. Only Shopify shops have the public product feed this needs.
 
@@ -477,6 +482,8 @@ The app is built with **Next.js (App Router)**: every folder under `src/app` is 
 | `menu.ts` | Checks an edited menu before it's saved (Admin → Menu) |
 | `shopify-import.ts` | Reads a Shopify shop's product feed and maps its products, prices, sizes and photos to ours |
 | `import-job.ts` | Runs Admin → Import products in the background and reports progress |
+| `store-import.ts` | Works out what kind of shop an address is (Shopify, WooCommerce, any website) and reads its products |
+| `marketplace-file.ts` | Turns Amazon / TikTok Shop / other marketplace exports into product-sheet rows |
 | `product-sheet.ts` | Products ⇄ Excel: the columns, building the export file, reading a sheet and checking each row |
 | `sheet-import-job.ts` | Saves a checked Excel import in the background (downloads photo links) and reports progress |
 | `customer.ts` | Customer accounts: who is signed in, their Stripe customer and saved cards |

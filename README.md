@@ -306,7 +306,7 @@ Refunds are issued from the Stripe dashboard. A full refund switches the order t
 3. **Environment variables:** add every variable from `.env.example` in the app's settings (not a `.env` file). Use a new random `SESSION_SECRET`, and set `SITE_URL` to `https://your-domain`. `ADMIN_EMAIL` and `ADMIN_PASSWORD` (10+ characters) are your admin login.
 4. **Deploy**, then sign in at `https://your-domain/admin`.
 5. **Stripe:** add the webhook endpoint `https://your-domain/api/webhooks/stripe` (section 7) and put its signing secret in `STRIPE_WEBHOOK_SECRET`.
-6. **Uploaded photos:** after your first redeploy, check a photo uploaded in the admin still shows. If redeploys wipe `storage/uploads`, set `UPLOAD_DIR` to a folder outside the app folder.
+6. **Uploaded photos:** set `UPLOAD_DIR` to a folder **outside** the app folder, e.g. `/home/u242708178/uploads` — Hostinger replaces the app folder on every redeploy, which deletes anything inside it. **Admin → Photo storage** shows the folder in use, warns when it's inside the app folder, and lists products whose photos are missing (imported products get theirs back with *Import products → refresh photos*). The admin dashboard shows the same warning.
 
 ### Anywhere else
 

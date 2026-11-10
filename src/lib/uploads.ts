@@ -15,3 +15,17 @@ export function sniffImage(buf: Buffer): { ext: "jpg" | "png" | "webp"; mime: st
 }
 
 export const SAFE_NAME = /^[a-f0-9]{32}\.(jpg|png|webp)$/;
+
+/**
+ * Whether uploads are kept inside the app's own folder. Hosts like Hostinger replace that folder on every
+ * redeploy, which deletes the uploads — UPLOAD_DIR should then point to a folder outside it.
+ */
+export function uploadsInsideApp(dir = uploadDir(), appDir = process.cwd()) {
+  const rel = path.relative(appDir, dir);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+/** Uploaded file names (/uploads/<name>) mentioned in some text, e.g. a picture address or a blog post. */
+export function uploadNamesIn(text: string): string[] {
+  return [...text.matchAll(/\/uploads\/([a-f0-9]{32}\.(?:jpg|png|webp))/g)].map((m) => m[1]);
+}

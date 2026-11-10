@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireAdminPage } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
+import { checkPhotos } from "@/lib/photo-check";
+import { uploadsInsideApp } from "@/lib/uploads";
 
 const PAID = ["PAID", "NEEDS_ATTENTION", "PROCESSING", "SHIPPED", "DELIVERED"] as const;
 
@@ -9,7 +11,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   await requireAdminPage("dashboard");
   const sp = await searchParams;
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const [revenue, orderCount, refunds, published, lowStock, waitingChats, recent, byDept] = await Promise.all([
+  const [revenue, orderCount, refunds, published, lowStock, waitingChats, recent, byDept, photos] = await Promise.all([
     prisma.order.groupBy({ by: ["currency"], where: { status: { in: [...PAID] }, paidAt: { gte: since } }, _sum: { total: true }, _count: true }),
     prisma.order.count({ where: { status: { in: [...PAID] }, paidAt: { gte: since } } }),
     prisma.order.count({ where: { status: "REFUNDED", updatedAt: { gte: since } } }),
@@ -18,6 +20,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     prisma.chatConversation.count({ where: { status: "HUMAN" } }),
     prisma.order.findMany({ orderBy: { createdAt: "desc" }, take: 8 }),
     prisma.orderItem.findMany({ where: { order: { status: { in: [...PAID] }, paidAt: { gte: since } } }, select: { unitPrice: true, quantity: true, order: { select: { currency: true } }, variant: { select: { product: { select: { department: true } } } } } }),
+    checkPhotos(),
   ]);
   const deptTotals = new Map<string, number>();
   for (const i of byDept) if (i.order.currency === "GBP") deptTotals.set(i.variant.product.department, (deptTotals.get(i.variant.product.department) ?? 0) + i.unitPrice * i.quantity);
@@ -25,6 +28,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   return (
     <div className="stack">
       {sp.denied && <div className="alert alert-warning">Your role doesn't have access to that section.</div>}
+      {photos.missing > 0 || uploadsInsideApp(photos.dir) ? (
+        <div className="alert alert-error">
+          {photos.missing > 0 ? `${photos.missing} uploaded picture${photos.missing === 1 ? " is" : "s are"} missing from the shop. ` : ""}
+          {uploadsInsideApp(photos.dir) ? "Uploaded pictures are stored inside the website's folder, so the next redeploy will delete them. " : ""}
+          <Link href="/admin/photos" style={{ textDecoration: "underline" }}>See Photo storage</Link>
+        </div>
+      ) : null}
       <h1 style={{ fontSize: "2rem" }}>Dashboard</h1>
       <p className="muted">Last 30 days · paid orders only</p>
       <div className="stat-grid">

@@ -34,14 +34,25 @@ export async function endCustomerSession() {
   (await cookies()).delete(CUSTOMER_COOKIE);
 }
 
-/** Creates the customer's Stripe record the first time it's needed (saved cards hang off it). */
+/**
+ * The customer's Stripe record (saved cards hang off it), created the first time it's needed. A record from
+ * another Stripe mode or account — e.g. made with the Sandbox keys before switching to live keys — doesn't
+ * exist for the current keys, so a new one is made instead of every checkout failing with "No such customer".
+ */
 export async function ensureStripeCustomer(customer: Customer): Promise<string | null> {
-  if (customer.stripeCustomerId) return customer.stripeCustomerId;
   const stripe = getStripe();
   if (!stripe) return null;
+  if (customer.stripeCustomerId) {
+    const found = await stripe.customers.retrieve(customer.stripeCustomerId).catch((e: { code?: string; statusCode?: number }) => {
+      if (e?.code === "resource_missing" || e?.statusCode === 404) return null;
+      throw e;
+    });
+    if (found && !found.deleted) return customer.stripeCustomerId;
+  }
   const created = await stripe.customers.create(
     { email: customer.email, name: customer.name, metadata: { customerId: customer.id } },
-    { idempotencyKey: `cus-${customer.id}` },
+    // One new record per missing one, even if two checkouts start at once.
+    { idempotencyKey: `cus-${customer.id}${customer.stripeCustomerId ? `-after-${customer.stripeCustomerId}` : ""}` },
   );
   await prisma.customer.update({ where: { id: customer.id }, data: { stripeCustomerId: created.id } });
   return created.id;

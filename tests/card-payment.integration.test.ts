@@ -14,9 +14,19 @@ const fake = vi.hoisted(() => {
     // The signed-in shop customer (null = guest checkout).
     account: null as null | { id: string },
     customerSessions: [] as { customer: string; components: unknown }[],
+    // Stripe customers that exist for the current keys.
+    customers: new Set<string>(),
     stripe: {
       customers: {
-        create: async () => ({ id: `cus_test${Date.now()}${n++}` }),
+        create: async () => {
+          const id = `cus_test${Date.now()}${n++}`;
+          fake.customers.add(id);
+          return { id };
+        },
+        retrieve: async (id: string) => {
+          if (!fake.customers.has(id)) throw Object.assign(new Error(`No such customer: '${id}'`), { type: "StripeInvalidRequestError", code: "resource_missing", statusCode: 404 });
+          return { id };
+        },
       },
       customerSessions: {
         create: async (params: { customer: string; components: unknown }) => {
@@ -190,8 +200,33 @@ describe.skipIf(!enabled)("on-page card payments (database)", () => {
       // A second checkout reuses the same Stripe customer, so cards saved last time are shown.
       const again = await startCheckout(variantId);
       expect(again.intent.customer).toBe(saved.stripeCustomerId);
+
+      // Switching Stripe keys (Sandbox → live): the saved customer doesn't exist there. Checkout still works,
+      // with a new Stripe customer instead of failing with "No such customer".
+      fake.customers.clear();
+      const afterSwitch = await startCheckout(variantId);
+      const resaved = await prisma.customer.findUniqueOrThrow({ where: { id: account.id } });
+      expect(resaved.stripeCustomerId).not.toBe(saved.stripeCustomerId);
+      expect(afterSwitch.intent.customer).toBe(resaved.stripeCustomerId);
     } finally {
       fake.account = null;
+    }
+  });
+
+  it("when Stripe refuses, the shopper gets a plain message and the order keeps Stripe's reason for the admin", async () => {
+    const create = fake.stripe.paymentIntents.create;
+    fake.stripe.paymentIntents.create = async () => {
+      throw Object.assign(new Error("Your account cannot currently make live charges."), { type: "StripeInvalidRequestError" });
+    };
+    try {
+      const res = await checkout.POST(post("/api/checkout", { lines: [{ variantId, quantity: 1 }], shippingMethod: "standard", discountCode: null, customer, acceptTerms: true }, { "x-forwarded-for": `10.0.1.${++checkouts}` }));
+      expect(res.status).toBe(502);
+      expect((await res.json()).error).toBe("We couldn't start the payment. Please try again in a moment.");
+      const order = await prisma.order.findFirstOrThrow({ where: { email: customer.email }, orderBy: { createdAt: "desc" } });
+      expect(order.status).toBe("CANCELLED");
+      expect(order.notes).toBe("Payment could not be started — Stripe said: Your account cannot currently make live charges.");
+    } finally {
+      fake.stripe.paymentIntents.create = create;
     }
   });
 

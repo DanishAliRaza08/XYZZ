@@ -109,7 +109,10 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("Stripe payment intent failed", err);
-    await prisma.order.update({ where: { id: order.id }, data: { status: "CANCELLED", notes: "Payment could not be started." } });
+    // Stripe's reason (e.g. "Your account cannot currently make live charges.") is kept on the order, so it can be
+    // read in Admin → Orders without the server logs. Stripe's messages contain no keys or card details.
+    const reason = (err as { type?: string; message?: string })?.type?.startsWith("Stripe") ? (err as Error).message : "unexpected error (see the server log)";
+    await prisma.order.update({ where: { id: order.id }, data: { status: "CANCELLED", notes: `Payment could not be started — Stripe said: ${reason}`.slice(0, 1000) } });
     return NextResponse.json({ error: "We couldn't start the payment. Please try again in a moment." }, { status: 502 });
   }
 }

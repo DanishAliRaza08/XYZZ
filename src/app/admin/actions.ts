@@ -199,6 +199,7 @@ export async function saveProduct(_: FormState, fd: FormData): Promise<FormState
     care: optStr(fd, "care"),
     origin: optStr(fd, "origin"),
     ageRange: optStr(fd, "ageRange"),
+    deliveryTime: optStr(fd, "deliveryTime")?.slice(0, 120) ?? null,
     collection: optStr(fd, "collection"),
     featured: fd.get("featured") === "on",
     bestseller: fd.get("bestseller") === "on",

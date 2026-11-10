@@ -79,6 +79,7 @@ export function BagView({ cancelled }: { cancelled: boolean }) {
                 </select>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => removeFromBag(l.variantId)}>Remove</button>
               </div>
+              {l.deliveryTime && <p className="small" style={{ margin: "0 0 8px" }}>🚚 Delivery: {l.deliveryTime}</p>}
               {l.problem && <p className="field-error" role="alert">{l.problem}</p>}
             </div>
             <strong>{formatMoney(l.lineTotal, c)}</strong>
@@ -261,16 +262,37 @@ export function CheckoutView({
         </section>
         <section className="panel stack">
           <h3>Delivery method</h3>
-          <label className="radio-card">
-            <input type="radio" name="method" checked={method === "standard"} onChange={() => setMethod("standard")} />
-            <span style={{ flex: 1 }}>Standard delivery <span className="muted small">· 3–5 working days</span></span>
-            <strong>{method === "standard" && quote.shipping === 0 ? "Free" : "Standard"}</strong>
-          </label>
-          <label className="radio-card">
-            <input type="radio" name="method" checked={method === "express"} onChange={() => setMethod("express")} />
-            <span style={{ flex: 1 }}>Express delivery <span className="muted small">· 1–2 working days</span></span>
-            <strong>Express</strong>
-          </label>
+          {quote.ownDeliveryOnly ? (
+            // Every item has its own delivery time: only those are offered, at the standard price.
+            <label className="radio-card">
+              <input type="radio" name="method" checked readOnly />
+              <span style={{ flex: 1 }}>
+                Delivery{" "}
+                <span className="muted small">· {[...new Set(quote.lines.map((l) => l.deliveryTime))].length === 1 ? quote.lines[0].deliveryTime : "times shown below for each item"}</span>
+              </span>
+              <strong>{quote.shipping === 0 ? "Free" : formatMoney(quote.shipping, c)}</strong>
+            </label>
+          ) : (
+            <>
+              <label className="radio-card">
+                <input type="radio" name="method" checked={method === "standard"} onChange={() => setMethod("standard")} />
+                <span style={{ flex: 1 }}>Standard delivery <span className="muted small">· 3–5 working days</span></span>
+                <strong>{method === "standard" && quote.shipping === 0 ? "Free" : "Standard"}</strong>
+              </label>
+              <label className="radio-card">
+                <input type="radio" name="method" checked={method === "express"} onChange={() => setMethod("express")} />
+                <span style={{ flex: 1 }}>Express delivery <span className="muted small">· 1–2 working days</span></span>
+                <strong>Express</strong>
+              </label>
+            </>
+          )}
+          {quote.lines.some((l) => l.deliveryTime) && (
+            <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>
+              {quote.lines.filter((l) => l.deliveryTime).map((l) => (
+                <li key={l.variantId}><strong>{l.productName}</strong> has its own delivery time: {l.deliveryTime}{quote.ownDeliveryOnly ? "" : " (it may arrive separately)"}</li>
+              ))}
+            </ul>
+          )}
           <p className="muted small">Delivery times are estimates from dispatch and are not guaranteed.</p>
         </section>
       </fieldset>

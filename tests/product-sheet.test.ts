@@ -29,7 +29,7 @@ async function sheet(rows: unknown[][]) {
 
 const exported: ExportProduct = {
   slug: "red-party-dress", name: "Red Party Dress", description: "A twirly party dress.", department: "GIRLS", status: "PUBLISHED",
-  category: { name: "Dresses" }, collection: "Christmas Edit", ageRange: "3–8 years", composition: null, care: null, origin: null,
+  category: { name: "Dresses" }, collection: "Christmas Edit", ageRange: "3–8 years", composition: null, care: null, origin: null, deliveryTime: "Made to order · 10–14 working days",
   priceGBP: 2499, salePriceGBP: null, priceUSD: 3299, salePriceUSD: null, featured: true, bestseller: false,
   images: [{ url: "/uploads/a.jpg#fp=40,30,1.2", colour: null }, { url: "/uploads/b.jpg", colour: "Red" }],
   variants: [
@@ -65,7 +65,7 @@ describe("export → import", () => {
     expect(plan.errors).toEqual([]);
     expect(plan.items).toHaveLength(1);
     const [p] = plan.items;
-    expect(p).toMatchObject({ action: "update", productId: "p1", data: { name: "Red Party Dress", categoryId: "c-dress", department: "GIRLS", status: "PUBLISHED", priceGBP: 2499, priceUSD: 3299, salePriceGBP: null, featured: true, collection: "Christmas Edit" } });
+    expect(p).toMatchObject({ action: "update", productId: "p1", data: { name: "Red Party Dress", categoryId: "c-dress", department: "GIRLS", status: "PUBLISHED", priceGBP: 2499, priceUSD: 3299, salePriceGBP: null, featured: true, collection: "Christmas Edit", deliveryTime: "Made to order · 10–14 working days" } });
     expect(p.variants).toEqual([
       { id: "v1", sku: "RPD-34", size: "3-4 Y", colour: "Red", colourHex: "#cc0000", stock: 4 },
       { id: "v2", sku: "RPD-56", size: "5-6 Y", colour: "Red", colourHex: "#cc0000", stock: 0 },

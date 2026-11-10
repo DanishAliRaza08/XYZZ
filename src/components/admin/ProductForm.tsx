@@ -27,6 +27,7 @@ export type ProductInitial = {
   care: string;
   origin: string;
   ageRange: string;
+  deliveryTime: string;
   collection: string;
   featured: boolean;
   bestseller: boolean;
@@ -37,7 +38,7 @@ export type ProductInitial = {
 const EMPTY: ProductInitial = {
   name: "", slug: "", description: "", department: "WOMEN", categoryId: "", status: "DRAFT",
   priceGBP: "", salePriceGBP: "", priceUSD: "", salePriceUSD: "",
-  composition: "", care: "", origin: "", ageRange: "", collection: "", featured: false, bestseller: false,
+  composition: "", care: "", origin: "", ageRange: "", deliveryTime: "", collection: "", featured: false, bestseller: false,
   variants: [], images: [],
 };
 
@@ -124,6 +125,11 @@ export function ProductForm({ categories, sections, initial }: { categories: { i
             </select>
           </div>
           <div className="field"><label htmlFor="ageRange">Age range (children)</label><input id="ageRange" name="ageRange" className="input" defaultValue={init.ageRange} placeholder="e.g. 3–10 years" /></div>
+        </div>
+        <div className="field">
+          <label htmlFor="deliveryTime">Delivery time (optional)</label>
+          <input id="deliveryTime" name="deliveryTime" className="input" defaultValue={init.deliveryTime} maxLength={120} placeholder="e.g. Made to order · 10–14 working days" />
+          <span className="muted small">Fill this in for items that take a different time to arrive (made to order, pre-order, shipped from abroad). The product page and checkout then show only this time for it, charged at the standard delivery price. Leave empty to offer the usual Standard and Express delivery.</span>
         </div>
         <div className="row">
           <label className="checkbox"><input type="checkbox" name="featured" defaultChecked={init.featured} /> Featured on homepage</label>

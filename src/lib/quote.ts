@@ -19,6 +19,7 @@ export type QuoteLine = {
   lineTotal: number;
   available: number;
   problem: string | null;
+  deliveryTime: string | null; // the product's own delivery time, if it has one
 };
 
 export type Quote = {
@@ -32,6 +33,8 @@ export type Quote = {
   shippingMethod: ShippingMethod;
   total: number;
   freeShippingRemaining: number;
+  // Every item has its own delivery time: checkout shows only those times (charged at the standard rate), no express.
+  ownDeliveryOnly: boolean;
   ok: boolean;
 };
 
@@ -82,6 +85,7 @@ export async function buildQuote(opts: {
       lineTotal: unitPrice * quantity,
       available: Math.max(0, v.stock),
       problem,
+      deliveryTime: v.product.deliveryTime?.trim() || null,
     });
   }
 
@@ -102,7 +106,10 @@ export async function buildQuote(opts: {
     }
   }
   const afterDiscount = subtotal - discount;
-  const shipping = lines.length ? shippingCost(opts.rates, opts.currency, opts.shippingMethod, afterDiscount) : 0;
+  const ownDeliveryOnly = lines.length > 0 && lines.every((l) => l.deliveryTime);
+  // Items with their own delivery time can't go express, so a bag of only those is charged the standard rate.
+  const shippingMethod: ShippingMethod = ownDeliveryOnly ? "standard" : opts.shippingMethod;
+  const shipping = lines.length ? shippingCost(opts.rates, opts.currency, shippingMethod, afterDiscount) : 0;
   const freeOver = opts.rates[opts.currency].freeOver;
   return {
     currency: opts.currency,
@@ -112,9 +119,10 @@ export async function buildQuote(opts: {
     discountCode,
     discountError,
     shipping,
-    shippingMethod: opts.shippingMethod,
+    shippingMethod,
     total: afterDiscount + shipping,
     freeShippingRemaining: Math.max(0, freeOver - afterDiscount),
+    ownDeliveryOnly,
     ok: lines.length > 0 && lines.every((l) => !l.problem),
   };
 }

@@ -20,6 +20,7 @@ export const COLUMNS = [
   { key: "priceUSD", header: "US price $", width: 11, help: "Optional; empty = not sold in the US store." },
   { key: "salePriceUSD", header: "US sale price $", width: 14, help: "Optional; must be lower than the US price." },
   { key: "ageRange", header: "Age range", width: 12, help: "Optional, e.g. 3–8 years." },
+  { key: "deliveryTime", header: "Delivery time", width: 24, help: "Optional own delivery time for this item, e.g. Made to order · 10–14 working days. The product page and checkout then show only this time for it. Empty = Standard / Express." },
   { key: "featured", header: "Featured", width: 10, help: "Yes or No — shown in Featured on the homepage." },
   { key: "bestseller", header: "Bestseller", width: 11, help: "Yes or No." },
   { key: "composition", header: "Fabric", width: 20, help: "Optional, e.g. 100% cotton. Only enter verified information." },
@@ -51,6 +52,7 @@ export type ExportProduct = {
   slug: string; name: string; description: string; department: Department; status: ProductStatus;
   category: { name: string };
   collection: string | null; ageRange: string | null; composition: string | null; care: string | null; origin: string | null;
+  deliveryTime: string | null;
   priceGBP: number; salePriceGBP: number | null; priceUSD: number | null; salePriceUSD: number | null;
   featured: boolean; bestseller: boolean;
   images: { url: string; colour: string | null }[];
@@ -82,7 +84,7 @@ export async function buildProductWorkbook(products: ExportProduct[], categories
       department: DEPARTMENTS.find((d) => d.value === p.department)?.label ?? p.department,
       category: p.category.name, collection: p.collection ?? "", status: STATUS_LABELS[p.status],
       priceGBP: money(p.priceGBP), salePriceGBP: money(p.salePriceGBP), priceUSD: money(p.priceUSD), salePriceUSD: money(p.salePriceUSD),
-      ageRange: p.ageRange ?? "", featured: p.featured ? "Yes" : "No", bestseller: p.bestseller ? "Yes" : "No",
+      ageRange: p.ageRange ?? "", deliveryTime: p.deliveryTime ?? "", featured: p.featured ? "Yes" : "No", bestseller: p.bestseller ? "Yes" : "No",
       composition: p.composition ?? "", care: p.care ?? "", origin: p.origin ?? "", photos: photosCell(p.images),
     };
     if (!p.variants.length) ws.addRow(base);
@@ -223,6 +225,7 @@ export async function readProductSheet(buf: Buffer, fileName = ""): Promise<Read
 export type ProductFields = {
   name: string; description: string; department: Department; categoryId: string; status: ProductStatus;
   collection: string | null; ageRange: string | null; composition: string | null; care: string | null; origin: string | null;
+  deliveryTime: string | null;
   priceGBP: number; salePriceGBP: number | null; priceUSD: number | null; salePriceUSD: number | null;
   featured: boolean; bestseller: boolean;
 };
@@ -379,10 +382,10 @@ export function planSheetImport(sheet: Pick<ReadSheet, "rows" | "present">, snap
     if (final.salePriceUSD != null && (final.priceUSD == null || final.salePriceUSD >= final.priceUSD)) fail(rowOf("salePriceUSD"), "US sale price must be lower than the US price");
 
     // Optional details: an empty cell clears them.
-    for (const [k, max] of [["collection", 190], ["ageRange", 190], ["origin", 190], ["composition", 5000], ["care", 5000]] as const) {
+    for (const [k, max] of [["collection", 190], ["ageRange", 190], ["origin", 190], ["deliveryTime", 120], ["composition", 5000], ["care", 5000]] as const) {
       if (!present.has(k)) continue;
       const t = text(k);
-      if (t.length > max) fail(rowOf(k), `${k === "composition" ? "Fabric" : k} is too long`);
+      if (t.length > max) fail(rowOf(k), `${k === "composition" ? "Fabric" : k === "deliveryTime" ? "Delivery time" : k} is too long`);
       else data[k] = t || null;
     }
     for (const k of ["featured", "bestseller"] as const) {

@@ -25,7 +25,7 @@ export default async function OrderDetail({ params }: { params: Promise<{ id: st
         <section className="panel">
           <h3>Items</h3>
           {order.items.map((i) => (
-            <div key={i.id} className="summary-row small"><span>{i.quantity} × {i.productName}<br /><span className="muted">{i.sku} · {i.colour} · {i.size}</span></span><span>{formatMoney(i.unitPrice * i.quantity, order.currency)}</span></div>
+            <div key={i.id} className="summary-row small"><span>{i.quantity} × {i.productName}<br /><span className="muted">{i.sku} · {i.colour} · {i.size}</span>{i.deliveryTime && <><br /><span className="small">🚚 Own delivery time: {i.deliveryTime}</span></>}</span><span>{formatMoney(i.unitPrice * i.quantity, order.currency)}</span></div>
           ))}
           <div className="summary-row"><span>Subtotal</span><span>{formatMoney(order.subtotal, order.currency)}</span></div>
           {order.discount > 0 && <div className="summary-row"><span>Discount ({order.discountCode})</span><span>−{formatMoney(order.discount, order.currency)}</span></div>}

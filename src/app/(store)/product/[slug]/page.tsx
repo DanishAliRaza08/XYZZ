@@ -86,6 +86,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
               {currency === "GBP" ? "Price includes VAT." : "Price excludes any US sales tax and import duties."}
               {product.ageRange ? ` · Age ${product.ageRange}` : ""}
             </p>
+            {product.deliveryTime && <p className="small" style={{ marginTop: 6 }}>🚚 <strong>Delivery:</strong> {product.deliveryTime}</p>}
 
             <ProductPurchase
               slug={product.slug}
@@ -114,9 +115,15 @@ export default async function ProductPage({ params, searchParams }: Props) {
               <details className="acc">
                 <summary>Delivery & returns</summary>
                 <div>
-                  <p>
-                    Standard delivery {formatMoney(ship.standard, currency)} — free on orders over {formatMoney(ship.freeOver, currency)}. Express delivery {formatMoney(ship.express, currency)}.
-                  </p>
+                  {product.deliveryTime ? (
+                    <p>
+                      This item has its own delivery time: <strong>{product.deliveryTime}</strong>. Delivery {formatMoney(ship.standard, currency)} — free on orders over {formatMoney(ship.freeOver, currency)}. Express delivery isn&apos;t available for this item.
+                    </p>
+                  ) : (
+                    <p>
+                      Standard delivery {formatMoney(ship.standard, currency)} — free on orders over {formatMoney(ship.freeOver, currency)}. Express delivery {formatMoney(ship.express, currency)}.
+                    </p>
+                  )}
                   <p>Free returns within 28 days of delivery. <Link href="/delivery-returns" style={{ textDecoration: "underline" }}>Full details</Link></p>
                 </div>
               </details>

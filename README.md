@@ -81,6 +81,7 @@ Secrets stay on the server. They are never sent to the browser and `.env` is git
 | Banner picture already has its own text (a poster) | Admin → Site settings or Seasonal events → **Text on the picture: Picture only** — the picture is shown whole and links to the button link |
 | How long bats/snow fall | Admin → Seasonal events → the event → **Stop falling after … seconds** (default 80; 0 = keep falling) |
 | Write, edit, publish or delete a blog post | Admin → **Blog** → New post / Edit |
+| Give a listing its own delivery time (made to order, pre-order…) | Admin → Products → the product → **Delivery time**. The product page and checkout then show only that time for it (standard price, no express); other items keep Standard / Express. Also a column in the Excel file |
 | Upload many blog posts at once (Word, text or a spreadsheet) as drafts | Admin → **Blog** → **Upload several posts** (instructions are on the page) |
 | Add, rename, reorder or remove menu items and their pages | Admin → **Menu** |
 | Publish, move to draft, archive or delete many products at once | Admin → Products → tick the products (or the box in the header for all) → choose an action |

@@ -49,6 +49,7 @@ export default async function EditProduct({ params, searchParams }: { params: Pr
           care: product.care ?? "",
           origin: product.origin ?? "",
           ageRange: product.ageRange ?? "",
+          deliveryTime: product.deliveryTime ?? "",
           collection: product.collection ?? "",
           featured: product.featured,
           bestseller: product.bestseller,

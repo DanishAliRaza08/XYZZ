@@ -118,7 +118,14 @@ export function PayView({ publishableKey }: { publishableKey: string | null }) {
             {[billing.address.line1, billing.address.line2, billing.address.city, billing.address.state, billing.address.postal_code].filter(Boolean).join(", ")}<br />
             <span className="muted">{billing.email}{billing.phone ? ` · ${billing.phone}` : ""}</span>
           </p>
-          <p className="muted small" style={{ margin: 0 }}>{pending.method === "express" ? "Express delivery · 1–2 working days" : "Standard delivery · 3–5 working days"}</p>
+          <p className="muted small" style={{ margin: 0 }}>
+            {pending.quote.ownDeliveryOnly
+              ? `Delivery · ${[...new Set(pending.quote.lines.map((l) => l.deliveryTime))].join(" / ")}`
+              : pending.method === "express" ? "Express delivery · 1–2 working days" : "Standard delivery · 3–5 working days"}
+          </p>
+          {!pending.quote.ownDeliveryOnly && pending.quote.lines.filter((l) => l.deliveryTime).map((l) => (
+            <p key={l.variantId} className="small" style={{ margin: 0 }}>🚚 {l.productName}: {l.deliveryTime}</p>
+          ))}
         </section>
         <section className="panel stack">
           <h3 style={{ margin: 0 }}>Pay by card</h3>

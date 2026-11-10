@@ -58,6 +58,7 @@ export async function createPendingOrder(quote: Quote, customer: CustomerDetails
           colour: l.colour,
           unitPrice: l.unitPrice,
           quantity: l.quantity,
+          deliveryTime: l.deliveryTime,
         })),
       },
     },

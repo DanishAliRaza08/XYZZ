@@ -36,6 +36,26 @@ describe.skipIf(!enabled)("order lifecycle (database)", () => {
     await prisma.$disconnect();
   });
 
+  it("items with their own delivery time: only that time and the standard price, or a note in a mixed bag", async () => {
+    const own = await makeProduct(5);
+    await prisma.product.update({ where: { id: own.id }, data: { deliveryTime: "Made to order · 10–14 working days" } });
+    const usual = await makeProduct(5);
+
+    // Only own-delivery items: express isn't possible, so the standard rate is charged even if express was picked.
+    const onlyOwn = await buildQuote({ lines: [{ variantId: own.variants[0].id, quantity: 1 }], currency: "GBP", shippingMethod: "express", rates: DEFAULT_SHIPPING });
+    expect(onlyOwn).toMatchObject({ ownDeliveryOnly: true, shippingMethod: "standard", shipping: DEFAULT_SHIPPING.GBP.standard });
+    expect(onlyOwn.lines[0].deliveryTime).toBe("Made to order · 10–14 working days");
+
+    // Mixed bag: standard / express stay available.
+    const mixed = await buildQuote({ lines: [{ variantId: own.variants[0].id, quantity: 1 }, { variantId: usual.variants[0].id, quantity: 1 }], currency: "GBP", shippingMethod: "express", rates: DEFAULT_SHIPPING });
+    expect(mixed).toMatchObject({ ownDeliveryOnly: false, shippingMethod: "express", shipping: DEFAULT_SHIPPING.GBP.express });
+    expect(mixed.lines.map((l) => l.deliveryTime)).toEqual(["Made to order · 10–14 working days", null]);
+
+    // The order remembers each item's delivery time.
+    const order = await createPendingOrder(mixed, customer);
+    expect(order.items.map((i) => i.deliveryTime).sort()).toEqual(["Made to order · 10–14 working days", null].sort());
+  });
+
   it("prices from the database, not the client, and flags stock problems", async () => {
     const p = await makeProduct(2);
     const q = await buildQuote({ lines: [{ variantId: p.variants[0].id, quantity: 3 }], currency: "GBP", shippingMethod: "standard", rates: DEFAULT_SHIPPING });

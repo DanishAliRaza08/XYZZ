@@ -698,3 +698,12 @@ export async function changePassword(_: FormState, fd: FormData): Promise<FormSt
   await audit(admin.id, "change-password", "AdminUser", admin.id);
   return { ok: "Password changed." };
 }
+
+// ---------- Chat assistant (Admin → Customer chats) ----------
+/** "Test the assistant": one tiny request to Gemini, with Google's answer explained. */
+export async function testChatAssistant(_: FormState, _fd: FormData): Promise<FormState> {
+  await requireAdminPage("chats");
+  const { testAssistant } = await import("@/lib/chat");
+  const r = await testAssistant();
+  return r.ok ? { ok: r.message } : { error: r.message };
+}

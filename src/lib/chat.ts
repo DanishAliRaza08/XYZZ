@@ -150,3 +150,38 @@ export async function generateAssistantReply(conversationId: string): Promise<Ch
     return failure;
   }
 }
+
+/** Turns Google's error into plain advice for the admin (Admin → Customer chats → Test the assistant). */
+export function explainGeminiError(status: number, message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("api key not valid") || m.includes("api_key_invalid"))
+    return "Google says the API key isn't valid. Copy the key again from aistudio.google.com/apikey (no spaces), put it in GEMINI_API_KEY and redeploy.";
+  if (m.includes("location is not supported") || m.includes("user location"))
+    return "Google doesn't offer the Gemini API from the server's location. A key from a paid Google Cloud project may be needed, or turn the assistant off and use WhatsApp / \"Talk to a person\".";
+  if (status === 403 || m.includes("has not been used") || m.includes("disabled") || m.includes("permission"))
+    return "This key isn't allowed to use the Gemini API. Make a new key at aistudio.google.com/apikey (it switches the API on for you), put it in GEMINI_API_KEY and redeploy.";
+  if (status === 404 || m.includes("not found") || m.includes("not supported for generatecontent"))
+    return `The AI model "${CHAT_MODEL}" isn't available to this key. Add GEMINI_MODEL = gemini-2.5-flash (or another model listed in Google AI Studio) and redeploy.`;
+  if (status === 429 || m.includes("quota") || m.includes("resource_exhausted"))
+    return "The free daily/per-minute allowance is used up. It resets by itself (per minute, or daily at midnight Pacific time); if it happens often, add billing to the key in AI Studio or set GEMINI_MODEL to a lighter model such as gemini-2.5-flash-lite.";
+  return `Google answered ${status}: ${message || "unknown error"}`;
+}
+
+/** Sends one tiny message to Gemini and says whether the assistant works, and if not, why. */
+export async function testAssistant(): Promise<{ ok: boolean; message: string }> {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) return { ok: false, message: "GEMINI_API_KEY isn't set. Add it in your hosting's environment variables and redeploy." };
+  try {
+    const res = await fetch(`${GEMINI_ENDPOINT}/${encodeURIComponent(CHAT_MODEL)}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Reply with just the word OK." }] }], generationConfig: { maxOutputTokens: 256 } }),
+    });
+    const data = (await res.json().catch(() => ({}))) as GeminiResponse;
+    if (!res.ok) return { ok: false, message: explainGeminiError(res.status, data.error?.message ?? "") };
+    return { ok: true, message: `The assistant works (model ${CHAT_MODEL}).` };
+  } catch (e) {
+    return { ok: false, message: `Couldn't reach Google from the server (${e instanceof Error ? e.message : "network error"}). Try again in a minute.` };
+  }
+}

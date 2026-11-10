@@ -61,7 +61,7 @@ The seed is safe to run again at any time: it adds anything missing and leaves y
 | `STRIPE_SECRET_KEY` | From Stripe Dashboard → Developers → API keys (`sk_test_…` while testing). Keep it secret |
 | `STRIPE_PUBLISHABLE_KEY` | From the same page (`pk_test_…` while testing). Safe to show in the browser; it loads the card form |
 | `STRIPE_WEBHOOK_SECRET` | From the webhook endpoint you create (`whsec_…`) |
-| `GEMINI_API_KEY` | Turns on AI chat replies. Get a free key at [Google AI Studio](https://aistudio.google.com/apikey). Without it, the chat still works and routes customers to your team |
+| `GEMINI_API_KEY` | Turns on AI chat replies. Get a free key at [Google AI Studio](https://aistudio.google.com/apikey). Without it, the chat still works and routes customers to your team. **Admin → Customer chats → Test the assistant** checks the key and explains Google's answer (wrong key, quota used up, model not available…) |
 | `GEMINI_MODEL` | Optional. Pins a Gemini model, e.g. `gemini-2.5-flash`. Defaults to `gemini-flash-latest`, Google's current Flash model |
 | `SUPPORT_WHATSAPP_NUMBER` | Your WhatsApp number in international format, digits only (e.g. `447700900123`). Can also be set in Admin → Site settings |
 | `UPLOAD_DIR` | Where photos uploaded in the admin are stored |

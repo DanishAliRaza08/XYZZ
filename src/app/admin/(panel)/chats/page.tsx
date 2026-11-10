@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { sendStaffReply, setChatStatus } from "../../actions";
+import { sendStaffReply, setChatStatus, testChatAssistant } from "../../actions";
 import { ActionForm } from "@/components/admin/ActionForm";
 import { AutoRefresh } from "@/components/admin/AdminNav";
 import { requireAdminPage } from "@/lib/auth";
@@ -33,6 +33,9 @@ export default async function ChatsAdmin({ searchParams }: { searchParams: Promi
       <AutoRefresh seconds={8} />
       <h1 style={{ fontSize: "2rem" }}>Customer chats</h1>
       {!aiEnabled() && <div className="alert alert-warning">AI replies are off — set <code>GEMINI_API_KEY</code> to enable the assistant. Customers can still reach your team.</div>}
+      <ActionForm action={testChatAssistant} submitLabel="Test the assistant" className="row">
+        <span className="muted small">Sends Google one short test message and shows what&apos;s wrong if the assistant can&apos;t answer.</span>
+      </ActionForm>
       {!settings.whatsappNumber && <div className="alert alert-warning">No WhatsApp number set. <Link href="/admin/settings" style={{ textDecoration: "underline" }}>Add it in Site settings</Link> so customers can contact you directly.</div>}
       <div className="row">{tab("human", "Waiting for team")}{tab("ai", "With assistant")}{tab("all", "All")}</div>
       <div className="chat-admin">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { startProductImport } from "@/app/admin/actions";
+import { startProductImport, stopProductImport } from "@/app/admin/actions";
 import { ActionForm } from "@/components/admin/ActionForm";
 import { AutoRefresh } from "@/components/admin/AdminNav";
 import { requireAdminPage } from "@/lib/auth";
@@ -80,6 +80,12 @@ export default async function ImportPage() {
           <p className={job.status === "failed" ? "alert alert-error" : job.status === "done" ? "alert alert-success" : undefined} style={{ margin: 0 }}>
             {job.message}
           </p>
+          {running && !job.stopRequested && (
+            <form action={stopProductImport}>
+              <button className="btn btn-sm btn-outline" style={{ color: "var(--danger)", borderColor: "var(--danger)" }}>Stop import</button>
+              <span className="muted small" style={{ marginLeft: 8 }}>Finishes the product it&apos;s on, then stops. Products already added stay in the shop.</span>
+            </form>
+          )}
           {job.total > 0 && (
             <>
               <div style={{ height: 10, background: "var(--surface-2)", borderRadius: 5, overflow: "hidden" }} role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>

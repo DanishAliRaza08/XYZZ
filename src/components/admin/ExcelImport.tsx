@@ -63,6 +63,14 @@ export function ExcelImport({ initialJob }: { initialJob: SheetJob | null }) {
     setBusy(null);
   };
 
+  const stop = async () => {
+    const fd = new FormData();
+    fd.append("mode", "stop");
+    const res = await fetch("/api/admin/products/excel/import", { method: "POST", body: fd }).catch(() => null);
+    const data = await res?.json().catch(() => null);
+    if (data?.job) setJob(data.job);
+  };
+
   const pct = job && job.total ? Math.round((job.processed / job.total) * 100) : 0;
 
   return (
@@ -161,7 +169,7 @@ export function ExcelImport({ initialJob }: { initialJob: SheetJob | null }) {
       {job && (
         <section className="panel stack" aria-label="Import progress">
           <div className="row" style={{ justifyContent: "space-between" }}>
-            <h3 style={{ margin: 0 }}>{running ? "Importing…" : job.status === "done" ? "Last Excel import" : "Import stopped"}</h3>
+            <h3 style={{ margin: 0 }}>{running ? (job.stopRequested ? "Stopping…" : "Importing…") : job.status === "done" ? "Last Excel import" : "Import stopped"}</h3>
             <span className="muted small">{job.fileName}</span>
           </div>
           <div style={{ height: 10, borderRadius: 999, background: "var(--surface-2)", overflow: "hidden" }} role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
@@ -170,6 +178,12 @@ export function ExcelImport({ initialJob }: { initialJob: SheetJob | null }) {
           <p style={{ margin: 0 }} role="status">
             {running ? `${job.processed} of ${job.total} products · ${job.created} added · ${job.updated} updated${job.photos ? ` · ${job.photos} photos downloaded` : ""}` : job.message}
           </p>
+          {running && !job.stopRequested && (
+            <div className="row" style={{ gap: 8 }}>
+              <button type="button" className="btn btn-sm btn-outline" style={{ color: "var(--danger)", borderColor: "var(--danger)" }} onClick={stop}>Stop import</button>
+              <span className="muted small">Finishes the product it&apos;s on, then stops. Products already saved stay in the shop.</span>
+            </div>
+          )}
           {job.log.length > 0 && (
             <pre className="small" style={{ maxHeight: 220, overflow: "auto", background: "var(--surface-2)", padding: 10, borderRadius: 6, whiteSpace: "pre-wrap", margin: 0 }}>{job.log.join("\n")}</pre>
           )}

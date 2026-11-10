@@ -133,6 +133,14 @@ export async function startProductImport(_: FormState, fd: FormData): Promise<Fo
   return { ok: "Import started — progress is shown below." };
 }
 
+/** Admin → Import products → Stop import. */
+export async function stopProductImport() {
+  const admin = await requireAdminPage("products");
+  const { stopImport } = await import("@/lib/import-job");
+  if (stopImport()) await audit(admin.id, "stop-import", "Product");
+  revalidatePath("/admin/import");
+}
+
 // ---------- Products ----------
 const VariantInput = z.object({
   id: z.string().optional(),

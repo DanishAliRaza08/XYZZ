@@ -99,6 +99,16 @@ describe.skipIf(!enabled)("Admin → Import products (database)", () => {
     expect((await prisma.product.findUnique({ where: { slug: `${tag}-party-dress-1` } }))?.name).toBe("Renamed in admin");
   });
 
+  it("Stop import stops it, keeping what was already added", async () => {
+    const { currentImport, startImport, stopImport } = await import("@/lib/import-job");
+    expect(stopImport()).toBe(false); // nothing running
+    expect(startImport({ source: "https://shop.example", status: "DRAFT", maxImages: 4, defaultStock: 5, limit: Infinity }, "x")).toBeNull();
+    expect(stopImport()).toBe(true);
+    for (let i = 0; i < 100 && currentImport()?.status === "running"; i++) await new Promise((r) => setTimeout(r, 50));
+    expect(currentImport()).toMatchObject({ status: "stopped", created: 0 });
+    expect(currentImport()!.message).toMatch(/^Stopped: 0 new products were added before stopping/);
+  });
+
   it("can refresh the photos of products already imported, linked to their colours", async () => {
     // The shop now links its photo to the Red sizes; product 1's photos were saved before photos had colours.
     feed[0] = product(1, { images: [{ src: "https://cdn.shopify.com/a.jpg", alt: "front", variant_ids: [1, 2] }] });

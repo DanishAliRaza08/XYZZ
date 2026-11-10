@@ -12,7 +12,8 @@ import { uploadDir } from "./uploads";
 
 export type SheetJob = {
   fileName: string;
-  status: "running" | "done" | "failed";
+  status: "running" | "done" | "failed" | "stopped";
+  stopRequested?: boolean; // Stop import: finishes the current product, then stops
   startedAt: Date;
   finishedAt?: Date;
   total: number;
@@ -55,6 +56,15 @@ export function startSheetImport(plan: ImportPlan, fileName: string, adminId: st
   return null;
 }
 
+/** Asks the running Excel import to stop after the product it's on. Returns false when nothing is running. */
+export function stopSheetImport(): boolean {
+  const job = globalJob.__frSheetJob;
+  if (job?.status !== "running") return false;
+  job.stopRequested = true;
+  job.message = "Stopping after the current product…";
+  return true;
+}
+
 function note(job: SheetJob, line: string) {
   job.log.push(line);
   if (job.log.length > 60) job.log.splice(0, job.log.length - 60);
@@ -66,6 +76,7 @@ async function run(job: SheetJob, items: PlannedProduct[], adminId: string) {
     const dir = uploadDir();
     await mkdir(dir, { recursive: true });
     for (const item of items) {
+      if (job.stopRequested) break;
       job.processed++;
       try {
         const photos = item.photos && (await localPhotos(job, item, dir, downloaded));
@@ -79,8 +90,8 @@ async function run(job: SheetJob, items: PlannedProduct[], adminId: string) {
       }
       if (job.processed % 25 === 0) invalidateStoreCache();
     }
-    job.status = "done";
-    job.message = `Finished: ${job.created} added, ${job.updated} updated${job.failed ? `, ${job.failed} not saved (see below)` : ""}.`;
+    job.status = job.stopRequested ? "stopped" : "done";
+    job.message = `${job.stopRequested ? "Stopped" : "Finished"}: ${job.created} added, ${job.updated} updated${job.failed ? `, ${job.failed} not saved (see below)` : ""}.${job.stopRequested ? " Those stay in the shop." : ""}`;
   } catch (e) {
     job.status = "failed";
     job.message = e instanceof Error ? e.message : "The import stopped unexpectedly.";

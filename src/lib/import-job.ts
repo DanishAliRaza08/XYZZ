@@ -20,7 +20,8 @@ export type ImportOptions = { source: string; status: ProductStatus; maxImages: 
 export type ImportJob = {
   source: string;
   platform?: string; // Shopify, WooCommerce or website
-  status: "running" | "done" | "failed";
+  status: "running" | "done" | "failed" | "stopped";
+  stopRequested?: boolean; // Stop import: finishes the current product, then stops
   startedAt: Date;
   finishedAt?: Date;
   total: number; // products in the store's feed
@@ -52,6 +53,17 @@ export function startImport(opts: ImportOptions, adminId: string): string | null
   return null;
 }
 
+/** Asks the running import to stop after the product it's on. Returns false when nothing is running. */
+export function stopImport(): boolean {
+  const job = globalJob.__frImportJob;
+  if (job?.status !== "running") return false;
+  job.stopRequested = true;
+  job.message = "Stopping after the current product…";
+  return true;
+}
+
+class StopRequested extends Error {}
+
 function note(job: ImportJob, line: string) {
   job.log.push(line);
   if (job.log.length > 40) job.log.splice(0, job.log.length - 40);
@@ -59,7 +71,11 @@ function note(job: ImportJob, line: string) {
 
 async function run(job: ImportJob, opts: ImportOptions, adminId: string) {
   try {
-    const { platform, items } = await fetchStoreProducts(opts.source, opts.limit, (line) => note(job, line));
+    const { platform, items } = await fetchStoreProducts(opts.source, opts.limit, (line) => {
+      note(job, line);
+      if (job.stopRequested) throw new StopRequested(); // stops while reading the other shop's pages too
+    });
+    if (job.stopRequested) throw new StopRequested();
     job.platform = platform;
     job.total = items.length;
     job.message = `Importing ${items.length} products…`;
@@ -77,6 +93,7 @@ async function run(job: ImportJob, opts: ImportOptions, adminId: string) {
     await mkdir(dir, { recursive: true });
 
     for (const p of items) {
+      if (job.stopRequested) throw new StopRequested();
       job.processed++;
       // Imported before (same product address): leave it, including any edits made in the admin —
       // unless asked to refresh its photos.
@@ -139,9 +156,15 @@ async function run(job: ImportJob, opts: ImportOptions, adminId: string) {
     job.status = "done";
     job.message = `Finished: ${job.created} new products added, ${job.existing} already in the shop${opts.refreshPhotos ? ` (photos refreshed for ${job.refreshed})` : ""}, ${job.skipped} skipped.`;
   } catch (e) {
-    job.status = "failed";
-    job.message = e instanceof Error ? e.message : "The import stopped unexpectedly.";
-    note(job, `Stopped: ${job.message}`);
+    if (e instanceof StopRequested) {
+      job.status = "stopped";
+      job.message = `Stopped: ${job.created} new products were added before stopping${job.refreshed ? `, photos refreshed for ${job.refreshed}` : ""}. They stay in the shop.`;
+      note(job, "Stopped by an admin");
+    } else {
+      job.status = "failed";
+      job.message = e instanceof Error ? e.message : "The import stopped unexpectedly.";
+      note(job, `Stopped: ${job.message}`);
+    }
   } finally {
     job.finishedAt = new Date();
     invalidateStoreCache();

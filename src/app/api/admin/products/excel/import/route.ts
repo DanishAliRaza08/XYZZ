@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { ProductStatus } from "@prisma/client";
 import { requireAdminApi } from "@/lib/auth";
 import { planSheetImport, readProductSheet } from "@/lib/product-sheet";
-import { currentSheetImport, loadSnapshot, startSheetImport } from "@/lib/sheet-import-job";
+import { currentSheetImport, loadSnapshot, startSheetImport, stopSheetImport } from "@/lib/sheet-import-job";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
   const admin = await requireAdminApi("products");
   if (!admin) return NextResponse.json({ error: "Not authorised" }, { status: 401 });
   const form = await req.formData().catch(() => null);
+  if (form?.get("mode") === "stop") return NextResponse.json({ stopping: stopSheetImport(), job: currentSheetImport() });
   const file = form?.get("file");
   if (!(file instanceof File) || file.size === 0) return NextResponse.json({ error: "Choose an Excel file first." }, { status: 400 });
   if (file.size > MAX_FILE_BYTES) return NextResponse.json({ error: "The file is bigger than 15MB — split it into smaller files." }, { status: 400 });
